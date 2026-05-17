@@ -3,6 +3,9 @@ onready var oGame = Nodelist.list["oGame"]
 onready var oMessage = Nodelist.list["oMessage"]
 onready var oBuffers = Nodelist.list["oBuffers"]
 
+var reserved_slabset = 100
+var highest_slabset_id_from_fxdata = 0
+
 var tng = []
 var dat = []
 var default_data = {}
@@ -35,6 +38,7 @@ enum dir {
 func clear_all_slabset_data():
 	tng = []
 	dat = []
+	highest_slabset_id_from_fxdata = 0
 
 func import_toml_slabset(filePath):
 	var processed_string = preprocess_toml_file(filePath)
@@ -51,17 +55,33 @@ func import_toml_slabset(filePath):
 		if cfg.has_section_key("slab0.S", "columns"): # Lowercase "Columns" means it's an out of date slabset.toml file
 			oMessage.big("Failed loading Slabset", "Old /fxdata/slabset.toml file, please install the latest KeeperFX alpha patch")
 	
+	var is_from_fxdata = "fxdata" in filePath
+	var max_slab_id_found = 0
 	
 	for section in cfg.get_sections():
 		var parts = section.split(".")
 		if parts.size() <= 1:
 			continue
 		
-		var slabID = int(parts[0])
-		var localVariation = int(dir_numbers[parts[1]]) # ["slab34", "CENTER"]
+		if not parts[0].begins_with("slab"):
+			oMessage.quick("Slabset: TOML section first part does not begin with 'slab': " + parts[0])
+			continue
+		var slab_id_str = parts[0].trim_prefix("slab")
+		if not slab_id_str.is_valid_integer():
+			oMessage.quick("Slabset: TOML section slab ID is not a valid integer: " + slab_id_str)
+			continue
+		var slabID = int(slab_id_str)
+		
+		if is_from_fxdata:
+			max_slab_id_found = max(max_slab_id_found, slabID)
+		
+		if not dir_numbers.has(parts[1]):
+			oMessage.quick("Slabset: TOML section variation key is invalid: " + parts[1])
+			continue
+		var localVariation = int(dir_numbers[parts[1]])
 		var variation = (slabID * 28) + localVariation
 
-		var objectIndex
+		var objectIndex = -1
 		var getObject
 		if parts.size() >= 3: # ["slab34", "CENTER", "objects0"]
 			objectIndex = int(parts[2])
@@ -75,28 +95,33 @@ func import_toml_slabset(filePath):
 			match key:
 				"Columns": dat[variation] = value
 				"Objects": tng[variation] = value
-				"IsLight": getObject[obj.IS_LIGHT] = int(value)
+				"IsLight": 
+					getObject[obj.IS_LIGHT] = int(value)
+					if int(value) == 1:
+						getObject[obj.THING_TYPE] = 0
 				"Subtile": getObject[obj.SUBTILE] = int(value)
 				"RelativePosition":
 					getObject[obj.RELATIVE_X] = int(value[0])
 					getObject[obj.RELATIVE_Y] = int(value[1])
 					getObject[obj.RELATIVE_Z] = int(value[2])
-				"ThingType": getObject[obj.THING_TYPE] = int(value) #int(Things.reverse_data_structure_name.get(value, 0))
+				"ThingType": 
+					getObject[obj.THING_TYPE] = int(value) #int(Things.reverse_data_structure_name.get(value, 0))
+					if getObject[obj.IS_LIGHT] == 1:
+						getObject[obj.THING_TYPE] = 0
 				"Subtype": getObject[obj.THING_SUBTYPE] = int(value)
 				"EffectRange": getObject[obj.EFFECT_RANGE] = int(value)
 	
-	if "fxdata" in filePath:
+	if is_from_fxdata:
+		highest_slabset_id_from_fxdata = max_slab_id_found
 		store_default_data()
 
 
 func load_default_original_slabset():
-	
-	var dat_buffer = oBuffers.file_path_to_buffer(oGame.get_precise_filepath(oGame.DK_DATA_DIRECTORY, "SLABS.DAT"))
-	var tng_buffer = oBuffers.file_path_to_buffer(oGame.get_precise_filepath(oGame.DK_DATA_DIRECTORY, "SLABS.TNG"))
+	var dat_buffer = oBuffers.file_path_to_buffer(Utils.case_insensitive_file(oGame.DK_DATA_DIRECTORY, "SLABS", "DAT"))
+	var tng_buffer = oBuffers.file_path_to_buffer(Utils.case_insensitive_file(oGame.DK_DATA_DIRECTORY, "SLABS", "TNG"))
 	
 	var object_info = create_object_list(tng_buffer)
 	if object_info.size() == 0:
-		oMessage.quick("Failed to load objects")
 		return
 	
 	var totalSlabs = 42 + 16
@@ -132,22 +157,32 @@ func store_default_data():
 
 
 func resize_dat_and_tng_based_on_file(cfg):
-	# Determine maximum needed size for dat and tng arrays
-	var max_variation = 0
+	var max_variation_size_needed = 0
 	for section in cfg.get_sections():
 		var parts = section.split(".")
-		if parts.size() >= 1:
-			var slabID = int(parts[0])
-			var variation = (slabID+1) * 28
-			max_variation = max(max_variation, variation)
+		if parts.size() >= 1 and parts[0].begins_with("slab"):
+			var slab_id_str = parts[0].trim_prefix("slab")
+			if slab_id_str.is_valid_integer():
+				var slabID_val = int(slab_id_str)
+				var current_size_check = (slabID_val + 1) * 28
+				max_variation_size_needed = max(max_variation_size_needed, current_size_check)
 	
-	# This is necessary rather than using fill([]), because we need to keep the original data there
-	while max_variation >= dat.size():
-		dat.append(EMPTY_SLAB)
-	while max_variation >= tng.size():
+	while max_variation_size_needed > dat.size():
+		dat.append(EMPTY_SLAB.duplicate()) # Ensure new arrays are distinct copies
+	while max_variation_size_needed > tng.size():
 		tng.append([])
 
 const EMPTY_SLAB = [0,0,0, 0,0,0, 0,0,0]
+
+func ensure_dat_has_space(variationIndex):
+	while variationIndex >= dat.size():
+		dat.append(EMPTY_SLAB.duplicate(true))
+
+
+func ensure_tng_has_space(variationIndex): # Helper retained, though not used in export below
+	while variationIndex >= tng.size():
+		tng.append([])
+
 
 func preprocess_toml_file(filePath): # 7ms
 	var file = File.new()
@@ -216,6 +251,9 @@ func create_object_list(tng_buffer):
 		object_info[i][obj.THING_TYPE] = tng_buffer.get_u8()
 		object_info[i][obj.THING_SUBTYPE] = tng_buffer.get_u8()
 		object_info[i][obj.EFFECT_RANGE] = tng_buffer.get_u8()
+		
+		if object_info[i][obj.IS_LIGHT] == 1:
+			object_info[i][obj.THING_TYPE] = 0
 	
 	return object_info
 
@@ -233,53 +271,61 @@ enum { # BitFlags
 
 func export_toml_slabset(filePath):
 	var CODETIME_START = OS.get_ticks_msec()
-
 	var list_of_modified_slabs = get_all_modified_slabs()
 
 	if list_of_modified_slabs.empty():
-		oMessage.big("File wasn't saved", "You've made zero changes, so the file wasn't saved.")
-		return
+		return false
 
 	var lines = PoolStringArray()
 	for slabID in list_of_modified_slabs:
 		lines.append("[slab" + str(slabID) + "]")
+		lines.append("")
 
 		for variationNumber in 28:
 			var variation = slabID * 28 + variationNumber
+			
+			# Only export this variation if it's actually different from default
+			if not (is_dat_variation_different(variation) or is_tng_variation_different(variation)):
+				continue
+				
 			var dirText = dir_texts[variationNumber]
 
-			lines.append("[slab" + str(slabID) + "." + dirText + "]")
+			ensure_dat_has_space(variation)
 
+			lines.append("[slab" + str(slabID) + "." + dirText + "]")
 			lines.append("Columns = " + str(dat[variation]))
 
-			for object in tng[variation]:
-				lines.append("")
-				lines.append("[[slab" + str(slabID) + "." + dirText + "_objects" + "]]")
-				for z in 9:
-					var propertyName
-					var value
-					match z:
-						0:
-							propertyName = "IsLight"
-							value = object[z]
-						2:
-							propertyName = "Subtile"
-							value = object[z]
-						3:
-							propertyName = "RelativePosition"
-							value = [ object[3], object[4], object[5] ]
-						6:
-							propertyName = "ThingType"
-							value = object[z]
-						7:
-							propertyName = "Subtype"
-							value = object[z]
-						8:
-							propertyName = "EffectRange"
-							value = object[z]
-					if propertyName:
-						lines.append(propertyName + " = " + str(value))
-			if tng[variation].size() == 0:
+			if variation < tng.size():
+				for object_properties in tng[variation]:
+					lines.append("")
+					lines.append("[[slab" + str(slabID) + "." + dirText + "_objects" + "]]")
+					for z in 9:
+						var propertyName
+						var value
+						match z:
+							0:
+								propertyName = "IsLight"
+								value = object_properties[z]
+							2:
+								propertyName = "Subtile"
+								value = object_properties[z]
+							3:
+								propertyName = "RelativePosition"
+								value = [ object_properties[3], object_properties[4], object_properties[5] ]
+							6:
+								propertyName = "ThingType"
+								value = object_properties[z]
+							7:
+								propertyName = "Subtype"
+								value = object_properties[z]
+							8:
+								propertyName = "EffectRange"
+								value = object_properties[z]
+						if propertyName:
+							lines.append(propertyName + " = " + str(value))
+				if tng[variation].empty():
+					lines.append("Objects = []")
+			else:
 				lines.append("Objects = []")
 
 			lines.append("")
@@ -288,19 +334,22 @@ func export_toml_slabset(filePath):
 	var textFile = File.new()
 	if textFile.open(filePath, File.WRITE) != OK:
 		oMessage.big("Error", "Couldn't save file, maybe try saving to another directory.")
-		return
+		return false
 
 	textFile.store_string("\n".join(lines))
 	textFile.close()
 
-	oMessage.quick("Saved: " + filePath)
-	oMessage.quick("Saved Slab IDs: " + str(list_of_modified_slabs).replace("[","").replace("]",""))
-
+	print("Saved: " + filePath)
+	print("Saved Slab IDs: " + str(list_of_modified_slabs).replace("[","").replace("]",""))
 	print('Exported in: ' + str(OS.get_ticks_msec() - CODETIME_START) + 'ms')
+	return true
 
 func get_all_modified_slabs():
 	var modified_slabs = []
-	var totalSlabs = max(dat.size(), tng.size()) / 28
+	var num_elements = max(dat.size(), tng.size())
+	if num_elements == 0:
+		return []
+	var totalSlabs = int(ceil(float(num_elements) / 28.0))
 	for slabID in totalSlabs:
 		if is_slab_edited(slabID):
 			modified_slabs.append(slabID)
@@ -315,24 +364,23 @@ func is_slab_edited(slabID):
 
 
 func is_dat_variation_different(variation):
-	if variation >= dat.size() or dat[variation].empty(): # This function should not have been called
+	if variation >= dat.size():
 		return false
-	if dat[variation] == [0,0,0, 0,0,0, 0,0,0]: # If it's got nothing on it, then skip it
-		return false
-	if variation >= default_data["dat"].size() or dat[variation] != default_data["dat"][variation]: # If 'default' is shorter, or the current and default elements differ
-		return true
-	return false
+	var current_dat_val = dat[variation]
+	var default_dat_val = EMPTY_SLAB
+	if default_data.has("dat") and variation < default_data["dat"].size():
+		default_dat_val = default_data["dat"][variation]
+	return current_dat_val != default_dat_val
 
 
 func is_tng_variation_different(variation):
-	 #or tng[variation].empty()
-	if variation >= tng.size(): # This function should not have been called
+	if variation >= tng.size():
 		return false
-#	if tng[variation] == [0,0,0, 0,0,0, 0,0,0]: # If it's got nothing on it, then skip it
-#		return false
-	if variation >= default_data["tng"].size() or tng[variation] != default_data["tng"][variation]: # If 'default' is shorter, or the current and default elements differ
-		return true
-	return false
+	var current_tng_val = tng[variation]
+	var default_tng_val = []
+	if default_data.has("tng") and variation < default_data["tng"].size():
+		default_tng_val = default_data["tng"][variation]
+	return current_tng_val != default_tng_val
 
 
 func is_dat_column_different(variation, subtile):
@@ -344,14 +392,10 @@ func is_dat_column_different(variation, subtile):
 
 
 func is_tng_object_different(variation, objectIndex, objectProperty):
-	# Check if the variation index is out of bounds for either array.
 	if variation >= tng.size() or variation >= default_data["tng"].size():
 		return false
-
-	# Check if the objectIndex is out of bounds for either array.
 	if objectIndex >= tng[variation].size() or objectIndex >= default_data["tng"][variation].size():
 		return true
-	# Compare the property values of the current and default objects.
 	return tng[variation][objectIndex][objectProperty] != default_data["tng"][variation][objectIndex][objectProperty]
 
 
@@ -478,3 +522,8 @@ var dir_numbers = {
 #		for xTile in 28:
 #			create_obj_on_slab(xTile, yTile, idx)
 #			idx += 1
+
+func is_valid_slab_id_for_navigation(slabID):
+	if highest_slabset_id_from_fxdata <= 0:
+		return true
+	return slabID <= highest_slabset_id_from_fxdata or slabID >= reserved_slabset

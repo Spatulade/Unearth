@@ -17,10 +17,8 @@ textures
 # Mono-specific ignores
 .mono/
 .vs/
+.cursor/
+.claude/
+CLAUDE.md
+userinput.py
 data_*/
-
-
-
-
-
-

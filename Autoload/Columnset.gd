@@ -2,7 +2,10 @@ extends 'res://Class/ClmClass.gd'
 onready var oGame = Nodelist.list["oGame"]
 onready var oBuffers = Nodelist.list["oBuffers"]
 
-var column_count = 2048
+var column_count = 8192
+var reserved_columnset = 4096
+var highest_columnset_id_from_fxdata = 0
+
 var utilized = []
 var orientation = []
 var solidMask = []
@@ -28,9 +31,16 @@ func import_toml_columnset(filePath):
 	if err != OK:
 		return
 	
+	var is_from_fxdata = "fxdata" in filePath
+	var max_column_id_found = 0
+	
 	for section in cfg.get_sections():
 		if section.begins_with("column"):
 			var columnIndex = int(section)
+			
+			if is_from_fxdata:
+				max_column_id_found = max(max_column_id_found, columnIndex)
+			
 			utilized[columnIndex] = 0 #cfg.get_value(section, "Utilized", 0)
 			permanent[columnIndex] = 1 #cfg.get_value(section, "Permanent", 0)
 			lintel[columnIndex] = cfg.get_value(section, "Lintel", 0)
@@ -40,13 +50,13 @@ func import_toml_columnset(filePath):
 			orientation[columnIndex] = cfg.get_value(section, "Orientation", 0)
 			cubes[columnIndex] = cfg.get_value(section, "Cubes", [0,0,0,0, 0,0,0,0])
 	
-	if "fxdata" in filePath:
+	if is_from_fxdata:
+		highest_columnset_id_from_fxdata = max_column_id_found
 		store_default_data()
-		update_list_of_columns_that_contain_owned_cubes()
-		update_list_of_columns_that_contain_rng_cubes()
+	update_cube_lists()
 
 func load_default_original_columnset():
-	var filePath = oGame.get_precise_filepath(oGame.DK_DATA_DIRECTORY, "SLABS.CLM")
+	var filePath = Utils.case_insensitive_file(oGame.DK_DATA_DIRECTORY, "SLABS", "CLM")
 	var buffer = oBuffers.file_path_to_buffer(filePath)
 	
 	buffer.seek(0)
@@ -73,8 +83,7 @@ func load_default_original_columnset():
 			cubes[entry][cubeNumber] = buffer.get_u16() # 8-23
 	
 	store_default_data()
-	update_list_of_columns_that_contain_owned_cubes()
-	update_list_of_columns_that_contain_rng_cubes()
+	update_cube_lists()
 
 func store_default_data():
 	default_data["utilized"] = utilized.duplicate(true)
@@ -87,43 +96,41 @@ func store_default_data():
 	default_data["floorTexture"] = floorTexture.duplicate(true)
 
 
-func export_toml_columnset(filePath): #"res://columnset.toml"
-	var oMessage = Nodelist.list["oMessage"]
-	
-	# Find differences if not a full export
-	var column_diffs = []
-	column_diffs = find_all_different_columns()
+func update_cube_lists():
+	update_list_of_columns_that_contain_owned_cubes()
+	update_list_of_columns_that_contain_rng_cubes()
+
+
+func export_toml_columnset(filePath):
+	var column_diffs = find_all_different_columns()
 	if column_diffs.size() == 0:
-		oMessage.big("File wasn't saved", "You've made zero changes, so the file wasn't saved.")
-		return
+		return false
 	
 	var textFile = File.new()
 	if textFile.open(filePath, File.WRITE) != OK:
+		var oMessage = Nodelist.list["oMessage"]
 		oMessage.big("Error", "Couldn't save file, maybe try saving to another directory.")
-		return
-	
-	textFile.store_line('[common]')
-	textFile.store_line('ColumnsCount = ' + str(column_count))
-	textFile.store_line('\r')
+		return false
 	
 	for i in column_count:
-		# If this is a partial export, then skip this column if it is the same as default.
 		if column_diffs.has(i) == false:
 			continue
 		
 		textFile.store_line('[column' + str(i) +']')
-#		textFile.store_line('Utilized = ' + str(Columnset.utilized[i])) #(0-1)
-#		textFile.store_line('Permanent = ' + str(Columnset.permanent[i])) #(2)
-		textFile.store_line('Lintel = ' + str(Columnset.lintel[i])) #(2)
-		textFile.store_line('Height = ' + str(Columnset.height[i])) #(2)
-		textFile.store_line('SolidMask = ' + str(Columnset.solidMask[i])) #(3-4)
-		textFile.store_line('FloorTexture = ' + str(Columnset.floorTexture[i])) #(5-6)
-		textFile.store_line('Orientation = ' + str(Columnset.orientation[i])) #(7)
-		textFile.store_line('Cubes = ' + str(Columnset.cubes[i])) #(8-23)
+		textFile.store_line('Lintel = ' + str(lintel[i]))
+		textFile.store_line('Height = ' + str(height[i]))
+		textFile.store_line('SolidMask = ' + str(solidMask[i]))
+		textFile.store_line('FloorTexture = ' + str(floorTexture[i]))
+		textFile.store_line('Orientation = ' + str(orientation[i]))
+		textFile.store_line('Cubes = ' + str(cubes[i]))
 		textFile.store_line('\r')
 	
-	oMessage.quick("Saved: " + filePath)
 	textFile.close()
+	print("Saved: " + filePath)
+	return true
+
+
+
 
 func find_all_different_columns():
 	var diff_indices = []
@@ -174,6 +181,11 @@ func update_list_of_columns_that_contain_rng_cubes():
 	
 	print('update_list_of_columns_that_contain_rng_cubes: ' + str(OS.get_ticks_msec() - CODETIME_START) + 'ms')
 
+func clear_all_column_data():
+	.clear_all_column_data()
+	highest_columnset_id_from_fxdata = 0
+
+
 func update_list_of_columns_that_contain_owned_cubes():
 	var CODETIME_START = OS.get_ticks_msec()
 	columnsContainingOwnedCubes.clear()
@@ -195,3 +207,8 @@ func update_list_of_columns_that_contain_owned_cubes():
 			columnsContainingOwnedCubes[clmIndex] = ownedCubeTypesInColumn.keys()
 	
 	print('update_list_of_columns_that_contain_owned_cubes: ' + str(OS.get_ticks_msec() - CODETIME_START) + 'ms')
+
+func is_valid_column_id_for_navigation(columnID):
+	if highest_columnset_id_from_fxdata <= 0:
+		return true
+	return columnID <= highest_columnset_id_from_fxdata or columnID >= reserved_columnset

@@ -30,6 +30,21 @@ func calculate_solid_mask(cubeArray):
 			setSolidBitmask += int(pow(2, i))
 	return setSolidBitmask
 
+func calculate_lintel(cubeArray):
+	var holeCount = 0
+	# Scan from top to bottom (index 7 to 0)
+	for cubeNumber in range(7, -1, -1):
+		if cubeArray[cubeNumber] == 0:
+			holeCount += 1
+			if holeCount == 2:
+				# Found the 2nd hole, return the position of the cube above it
+				# The cube above this hole is at cubeNumber + 1
+				var cubePosition = cubeNumber + 1
+				var reversedCubePosition = 7 - cubePosition
+				return reversedCubePosition
+	# If we don't find a 2nd hole, return 0 as default
+	return 0
+
 func delete_column(index):
 	self.utilized[index] = 0
 	self.orientation[index] = 0
@@ -96,14 +111,12 @@ func find_cubearray_index(cubeArray, floorID):
 			break
 	return -1
 
-func get_top_cube_face(index, slabID):
-	var get_height = self.height[index]
-	if slabID == Slabs.PORTAL:
-		get_height = get_highest_cube_height(self.cubes[index])
-	if get_height == 0:
-		return self.floorTexture[index]
-	else:
-		var cubeID = self.cubes[index][get_height-1] #get_height
-		if cubeID > Cube.CUBES_COUNT:
-			return 1
-		return Cube.tex[cubeID][Cube.SIDE_TOP]
+func get_top_cube_face(clmIndex):
+	var cubeArray = self.cubes[clmIndex]
+	for i in range(7, -1, -1):
+		var cubeID = cubeArray[i]
+		if cubeID != 0:
+			return Cube.tex[cubeID][Cube.SIDE_TOP] if cubeID <= Cube.CUBES_COUNT else 1
+	return self.floorTexture[clmIndex]
+
+

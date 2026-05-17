@@ -6,6 +6,7 @@ onready var oInstances = Nodelist.list["oInstances"]
 onready var oThingDetails = Nodelist.list["oThingDetails"]
 onready var oPickThingWindow = Nodelist.list["oPickThingWindow"]
 onready var oActionPointList = Nodelist.list["oActionPointList"]
+onready var oUi = Nodelist.list["oUi"]
 
 #onready var oSelection = $'../../Selector/Selection'
 #onready var oInstanceOwnership = $'../../OverheadOwnership/InstanceOwnership'
@@ -43,7 +44,7 @@ var baseZindex = 0
 var creatureGold = null
 var creatureInitialHealth = null
 var creatureName = null setget set_creatureName
-var orientation = null
+var orientation = null setget set_orientation
 var goldValue = null
 
 func _enter_tree():
@@ -54,6 +55,10 @@ func _enter_tree():
 		add_to_group('attachedtotile_'+str(parentTile))
 	
 	load_default_kfx_values()
+	
+	var oCamera2D = Nodelist.list["oCamera2D"]
+	oCamera2D.connect("zoom_level_changed",self,"_on_zoom_level_changed")
+	_on_zoom_level_changed(oCamera2D.zoom)
 	
 	match thingType:
 		Things.TYPE.TRAP:
@@ -69,19 +74,17 @@ func _enter_tree():
 				z_index = 2
 			elif subtype in [52,53,54,55,56]:
 				add_to_group("TreasuryGold")
-			elif subtype in Things.LIST_OF_SPELLBOOKS:
+			
+			if subtype in Things.LIST_OF_SPELLBOOKS:
 				add_to_group("Spellbook")
-			elif subtype in Things.LIST_OF_HEROGATES:
+			if subtype in Things.LIST_OF_HEROGATES:
 				add_to_group("HeroGate")
 				yield(get_tree(),'idle_frame')
 				if oActionPointList:
 					oActionPointList.update_ap_list()
-					
+		
 		Things.TYPE.CREATURE:
 			add_to_group("Creature")
-			var oCamera2D = Nodelist.list["oCamera2D"]
-			oCamera2D.connect("zoom_level_changed",self,"_on_zoom_level_changed")
-			_on_zoom_level_changed(oCamera2D.zoom)
 		Things.TYPE.EFFECTGEN:
 			add_to_group("EffectGen")
 
@@ -149,29 +152,45 @@ func set_location_z(setVal):
 
 
 func _on_zoom_level_changed(zoom):
-	var oUi = Nodelist.list["oUi"]
-	var oQuickMapPreview = Nodelist.list["oQuickMapPreview"]
-	var inventScale = Vector2()
-	inventScale.x = clamp(zoom.x, 1.0, oUi.FONT_SIZE_CR_LVL_MAX)
-	inventScale.y = clamp(zoom.y, 1.0, oUi.FONT_SIZE_CR_LVL_MAX)
-	if zoom.x > oUi.FONT_SIZE_CR_LVL_MAX or oQuickMapPreview.visible == true:
-		$CreatureLevel.self_modulate = Color(0,0,0,0)
-	else:
-		$CreatureLevel.self_modulate = Color(1,1,1,1)
-	
-	$CreatureLevel.scale = inventScale * oUi.FONT_SIZE_CR_LVL_BASE * 1.5
+	match thingType:
+		Things.TYPE.CREATURE:
+			var oQuickMapPreview = Nodelist.list["oQuickMapPreview"]
+			var oUiii = Nodelist.list["oUi"]
+			var inventScale = Vector2()
+			inventScale.x = clamp(zoom.x, 1.0, oUiii.FONT_SIZE_CR_LVL_MAX)
+			inventScale.y = clamp(zoom.y, 1.0, oUiii.FONT_SIZE_CR_LVL_MAX)
+			if zoom.x > oUiii.FONT_SIZE_CR_LVL_MAX or oQuickMapPreview.visible == true:
+				$CreatureLevel.self_modulate = Color(0,0,0,0)
+			else:
+				$CreatureLevel.self_modulate = Color(1,1,1,1)
+			$CreatureLevel.scale = inventScale * oUiii.FONT_SIZE_CR_LVL_BASE * 1.5
+		_:
+			var oUiii = Nodelist.list["oUi"]
+			var oQuickMapPreviewww = Nodelist.list["oQuickMapPreview"]
+			var inventScale = Vector2()
+			inventScale.x = clamp(zoom.x, 1.0, oUiii.FACING_ARROW_SIZE_MAX)
+			inventScale.y = clamp(zoom.y, 1.0, oUiii.FACING_ARROW_SIZE_MAX)
+			if zoom.x > oUiii.FACING_ARROW_SIZE_MAX or oQuickMapPreviewww.visible == true:
+				$WhiteArrow.self_modulate = Color(0,0,0,0)
+			else:
+				$WhiteArrow.self_modulate = Color(1,1,1,1)
+			$WhiteArrow.scale = inventScale * oUiii.FACING_ARROW_SIZE_BASE * 0.05
+
 
 func set_ownership(setval):
 	ownership = setval
-	
-	if ownership == 5 and thingType != Things.TYPE.CREATURE: # If the object has no ownership don't apply the material or else it'll flash.
-		$ThingTexture.material = null
-	else:
-		if ownership == 255:
-			print('For some reason ownership 255 at '+str(locationX)+' - '+str(locationY))
-			return
-			
-		$ThingTexture.material = Nodelist.list["oInstanceOwnership"].materialInstanceOwnership[ownership]
+	call_deferred("set_ownership_material_one_frame_later") # this fixes a bug
+
+func set_ownership_material_one_frame_later(): # needs to be call_deferred
+	if ownership == 255:
+		print('For some reason ownership 255 is at '+str(locationX)+' - '+str(locationY))
+		return
+	if thingType != Things.TYPE.CREATURE and ownership == 5: # Don't flash normal objects
+		return
+
+	$"%ThingTexture".material = Nodelist.list["oInstanceOwnership"].materialInstanceOwnership[ownership]
+
+
 
 func set_effectRange(setval):
 	data9 = null
@@ -207,6 +226,13 @@ func set_creatureName(setval):
 	#setval = Utils.strip_special_chars_from_string(setval)
 	creatureName = setval
 
+func set_orientation(setval):
+	if setval != 0:
+		$WhiteArrow.visible = true
+		$WhiteArrow.rotation_degrees = (setval/2047.0) * 360
+	else:
+		$WhiteArrow.visible = false
+	orientation = setval
 
 func set_herogateNumber(setval):
 	data14 = null
@@ -218,21 +244,26 @@ func set_texture_based_on_thingtype():
 	var tex = Things.fetch_sprite(thingType, subtype)
 	match thingType:
 		Things.TYPE.OBJECT:
-			if subtype in [49, 111,120,121,122]: # Heart Flame and Gate
-				$ThingTexture.self_modulate = "a0ffffff"
-			var successOrFailure = Nodelist.list["oPickThingWindow"].add_workshop_item_sprite_overlay($ThingTexture, subtype)
+			if subtype == 49: # Gate
+				$"%ThingTexture".material = preload("res://Shaders/HeroGateMaterial.tres")
+			
+			var object_data = Things.DATA_OBJECT.get(subtype)
+			if object_data and object_data[Things.NAME_ID] is String and object_data[Things.NAME_ID].begins_with("HEARTFLAME_"):
+				$"%ThingTexture".material = preload("res://Shaders/FlameMaterial.tres")
+			
+			var successOrFailure = Nodelist.list["oPickThingWindow"].add_workshop_item_sprite_overlay($"%ThingTexture", subtype)
 			if successOrFailure == true:
-				$ThingTexture.rect_position += Vector2(-1,9)
+				$"%ThingTexture".rect_position += Vector2(-1,9)
 		Things.TYPE.CREATURE:
 			if tex != null:
-				#$ThingTexture.rect_position.y -= 12
-				$ThingTexture.rect_scale = Vector2(1.5,1.5)
+				#$"%ThingTexture".rect_position.y -= 12
+				$"%ThingTexture".rect_scale = Vector2(1.5,1.5)
 	if tex != null:
-		$ThingTexture.texture = tex
+		$"%ThingTexture".texture = tex
 	else:
-		$ThingTexture.texture = preload('res://Art/Thing.png')
-		$ThingTexture.expand = true
-		$ThingTexture.rect_scale = Vector2(0.5,0.5)
+		$"%ThingTexture".texture = preload('res://Art/Thing.png')
+		$"%ThingTexture".expand = true
+		$"%ThingTexture".rect_scale = Vector2(0.5,0.5)
 		$TextNameLabel.visible = true
 		yield(get_tree(),'idle_frame')
 		
@@ -259,10 +290,11 @@ func set_grow_direction():
 		return
 	
 	# Grow from base instead of center
-	$ThingTexture.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	$"%ThingTexture".grow_vertical = Control.GROW_DIRECTION_BEGIN
 
 
 func _on_MouseDetection_mouse_entered():
+	if oUi.mouseOnUi == true: return
 	if oSelection.cursorOnInstancesArray.has(self) == false:
 		oSelection.cursorOnInstancesArray.append(self)
 	
@@ -349,31 +381,31 @@ func _on_VisibilityNotifier2D_screen_exited():
 
 #func _ready():
 #	oCreatureTextureRect.visible = false
-#	$ThingTexture.visible = true
+#	$"%ThingTexture".visible = true
 #
 #	match get_type():
 #		TYPE.NONE: pass
 #		TYPE.ITEM:
 #			var tex = DATA_OBJECT[get_subtype()][TEXTURE]
-#			if tex != null: $ThingTexture.texture = tex
+#			if tex != null: $"%ThingTexture".texture = tex
 #		TYPE.CREATURE:
-#			$ThingTexture.visible = false
+#			$"%ThingTexture".visible = false
 #			oCreatureTextureRect.visible = true
 #			oCreatureTextureRect.texture = DATA_CREATURE[get_subtype()][TEXTURE]
 #			oCreatureTextureRect.material = oInstanceOwnership.materialInstanceOwnership[get_ownership()]
 #			oCreatureLevel.frame = data[CREATURE_LEVEL]
 #		TYPE.EFFECT:
 #			var tex = DATA_EFFECTGEN[get_subtype()][TEXTURE]
-#			if tex != null: $ThingTexture.texture = tex
+#			if tex != null: $"%ThingTexture".texture = tex
 #		TYPE.TRAP:
 #			var tex = DATA_TRAP[get_subtype()][TEXTURE]
-#			if tex != null: $ThingTexture.texture = tex
+#			if tex != null: $"%ThingTexture".texture = tex
 #		TYPE.DOOR:
 #			var tex = DATA_DOOR[get_subtype()][TEXTURE]
-#			if tex != null: $ThingTexture.texture = tex
+#			if tex != null: $"%ThingTexture".texture = tex
 #
-#	if $ThingTexture.texture == null:
-#		$ThingTexture.modulate = col
+#	if $"%ThingTexture".texture == null:
+#		$"%ThingTexture".modulate = col
 #
 #func setOwnership():
 #	var value = data[OWNERSHIP]

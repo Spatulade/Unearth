@@ -16,7 +16,7 @@ var SMOOTH_PAN_ENABLED = false
 var MOUSE_EDGE_PANNING = true
 var DIRECTIONAL_PAN_SPEED = 2250
 
-var desired_zoom = Vector2(0,0)
+var desired_zoom = Vector2(0.001, 0.001)
 var desired_offset = Vector2(0,0)
 var panDirectionKeyboard = Vector2(0,0)
 var panDirectionMouse = Vector2(0,0)
@@ -24,9 +24,6 @@ var middleMousePanning = false
 #var mouseIsMoving = false
 
 var mouseInWindow = true
-
-func _ready():
-	reset_camera(M.xSize, M.ySize)
 
 func reset_camera(x, y):
 	# Add 2 units for the border
@@ -56,23 +53,23 @@ func reset_camera(x, y):
 		id._on_zoom_level_changed(zoom)
 
 
-
-
-
-
-
 func _process(delta):
 	if OS.is_window_focused() == false: return
 	if current == false: return #View is 3D
 	
+	var zoom_changed = false
+	var pan_changed = false
+	
 	if zoom != desired_zoom:
-		zoom = lerp(zoom, desired_zoom, clamp(SMOOTHING_RATE * delta, 0.0, 1.0))
+		zoom = lerp(zoom, desired_zoom, clamp(SMOOTHING_RATE * delta, 0, 1.0))
 		emit_signal("zoom_level_changed", zoom)
+		zoom_changed = true
 	
-	
-	
+	var old_desired_offset = desired_offset
 	desired_offset += panDirectionMouse * DIRECTIONAL_PAN_SPEED * (zoom/Settings.UI_SCALE.x) * delta
 	desired_offset += panDirectionKeyboard * DIRECTIONAL_PAN_SPEED * (zoom/Settings.UI_SCALE.x) * delta
+	if desired_offset != old_desired_offset:
+		pan_changed = true
 	var fieldSize = Vector2(32*(M.xSize*3), 32*(M.ySize*3))
 	var halfViewSize = ((get_viewport().size/Settings.UI_SCALE) * 0.5) * desired_zoom
 	# The point of this is just so you can't move the map COMPLETELY off the screen
@@ -102,6 +99,9 @@ func _process(delta):
 		offset = desired_offset
 	if (zoom-desired_zoom).abs() < Vector2(0.0001,0.0001):
 		zoom = desired_zoom
+	
+	if zoom_changed or pan_changed:
+		oEditor.input_requests_screen_update()
 	
 #	print('offset : ' + str((offset-desired_offset).abs()))
 #	print('zoom : ' + str((zoom-desired_zoom).abs()))
@@ -176,7 +176,11 @@ func zoom_camera(zoom_factor, mouse_position):
 	var previous_zoom = desired_zoom
 	
 	desired_zoom += desired_zoom * zoom_factor
+	desired_zoom.x = max(0.001, desired_zoom.x)
+	desired_zoom.y = max(0.001, desired_zoom.y)
 	desired_offset += ((viewport_size * 0.5) - mouse_position) * (desired_zoom-previous_zoom)
+	
+	oEditor.input_requests_screen_update()
 
 func _notification(blah):
 	match blah:
@@ -187,3 +191,4 @@ func _notification(blah):
 
 func center_camera_on_point(point: Vector2):
 	desired_offset = point
+	oEditor.input_requests_screen_update()

@@ -19,6 +19,11 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://Class/EditableLabel.gd"
 }, {
+"base": "TextureButton",
+"class": "GenericRevertButton",
+"language": "GDScript",
+"path": "res://Class/GenericRevertButton.gd"
+}, {
 "base": "Node",
 "class": "Grid",
 "language": "GDScript",
@@ -37,11 +42,12 @@ _global_script_classes=[ {
 "base": "Node",
 "class": "VariationConstructs",
 "language": "GDScript",
-"path": "res://Scenes/ConstructedVariations.gd"
+"path": "res://Scenes/VariationConstructs.gd"
 } ]
 _global_script_class_icons={
 "CustomSpinBox": "",
 "EditableLabel": "",
+"GenericRevertButton": "",
 "Grid": "",
 "SpecialTabContainer": "",
 "SpinBoxPropertiesValue": "",
@@ -52,6 +58,7 @@ _global_script_class_icons={
 
 config/name="Unearth"
 run/main_scene="res://Scenes/Main.tscn"
+run/delta_sync_after_draw=true
 boot_splash/image="Skip-loading-screen"
 config/icon="res://Art/icon/UnearthIcon256x256.png"
 
@@ -83,10 +90,11 @@ gdscript/warnings/integer_division=false
 window/size/height=576
 window/size/borderless=true
 window/dpi/allow_hidpi=true
+window/energy_saving/keep_screen_on=false
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/GDScriptMacros/plugin.cfg", "res://addons/IncludeOnExport/plugin.cfg", "res://addons/SingletonScriptsShortcut/plugin.cfg", "res://addons/UnearthEditorPlugin/plugin.cfg", "res://addons/godot-plugin-refresher/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/CopyStackFrames/plugin.cfg", "res://addons/GDScriptMacros/plugin.cfg", "res://addons/IncludeOnExport/plugin.cfg", "res://addons/NodeScriptRenamer/plugin.cfg", "res://addons/SingletonScriptsShortcut/plugin.cfg", "res://addons/UnearthEditorPlugin/plugin.cfg", "res://addons/godot-plugin-refresher/plugin.cfg" )
 
 [gd2cs]
 

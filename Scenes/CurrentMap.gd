@@ -18,24 +18,40 @@ onready var oDataMapName = Nodelist.list["oDataMapName"]
 onready var oMain = Nodelist.list["oMain"]
 onready var oMessage = Nodelist.list["oMessage"]
 onready var oDataScript = Nodelist.list["oDataScript"]
-onready var oScriptHelpers = Nodelist.list["oScriptHelpers"]
+onready var oScriptMarkers = Nodelist.list["oScriptMarkers"]
 onready var oDataFakeSlab = Nodelist.list["oDataFakeSlab"]
 onready var oSlabPlacement = Nodelist.list["oSlabPlacement"]
 onready var oMenu = Nodelist.list["oMenu"]
 onready var oDataLof = Nodelist.list["oDataLof"]
 onready var oInstances = Nodelist.list["oInstances"]
-onready var oColumnEditor = Nodelist.list["oColumnEditor"]
+onready var oTabClmEditor = Nodelist.list["oTabClmEditor"]
+onready var oDataLua = Nodelist.list["oDataLua"]
+onready var oScriptEditor = Nodelist.list["oScriptEditor"]
 
 var path = ""
 var currentFilePaths = {} # [0] = pathString,  [1] = modified date
+var DKScript_enabled = false
+var LuaScript_enabled = false
+
+var existing_slabset_file = ""
+var existing_rules_file = ""
+var existing_columnset_file = ""
 
 enum {
 	PATHSTRING
 	MODIFIED_DATE
 }
 
+
 func _init():
 	OS.set_window_title('Unearth v'+Version.full)
+
+func _ready():
+	var oConfigFileManager = Nodelist.list["oConfigFileManager"]
+	oConfigFileManager.connect("config_file_status_changed", self, "_on_config_status_changed")
+
+func _on_config_status_changed():
+	update_config_paths()
 
 func _on_ButtonNewMap_pressed():
 	oOpenMap.open_map("") # This means "blank" map
@@ -51,7 +67,7 @@ func set_path_and_title(newpath):
 	
 	oGame.reconstruct_command_line() # Always update command line whenever the path changes
 
-func clear_map():
+func clear_map(): # Remember, "Undo" calls this
 	var CODETIME_START = OS.get_ticks_msec()
 	
 	var allInst = get_tree().get_nodes_in_group("Instance")
@@ -67,19 +83,65 @@ func clear_map():
 	oDataLevelStyle.data = 0
 	# 3D
 	oGenerateTerrain.clear()
-	#"TXT"
-	oDataScript.data = ""
 	
-	oScriptHelpers.clear()
+	oScriptMarkers.clear()
 	
 	# "LOF" # Do this last in case other functions rely on the old map size
 	oDataLof.clear_all()
 	
-	Things.LIST_OF_SPELLBOOKS.clear()
-	Things.LIST_OF_HEROGATES.clear()
-	
-	if oColumnEditor.visible == true:
-		oColumnEditor.visible = false
-	
 	print('Cleared map in '+str(OS.get_ticks_msec()-CODETIME_START)+'ms')
+
+func _notification(what: int):
+	if what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
+		check_script_file_modifications()
+
+func get_meaningful_file_path(fileName):
+	var oConfigFileManager = Nodelist.list["oConfigFileManager"]
+	for cfg_type in [oConfigFileManager.LOAD_CFG_CURRENT_MAP, oConfigFileManager.LOAD_CFG_CAMPAIGN]:
+		if oConfigFileManager.paths_loaded.has(cfg_type):
+			for path in oConfigFileManager.paths_loaded[cfg_type]:
+				if path and path.to_lower().ends_with(fileName):
+					return path
+	return ""
+
+func update_config_paths():
+	existing_slabset_file = get_meaningful_file_path("slabset.toml")
+	existing_columnset_file = get_meaningful_file_path("columnset.toml") 
+	existing_rules_file = get_meaningful_file_path("rules.cfg")
+
+
+func check_script_file_modifications():
+	if DKScript_enabled and currentFilePaths.has("TXT"):
+		var file_info = currentFilePaths["TXT"]
+		var file_path = file_info[PATHSTRING]
+		var stored_modified_time = file_info[MODIFIED_DATE]
+		var current_modified_time = File.new().get_modified_time(file_path)
+
+		if stored_modified_time != current_modified_time:
+			file_info[MODIFIED_DATE] = current_modified_time
+			var file = File.new()
+			if file.file_exists(file_path):
+				var err = file.open(file_path, File.READ)
+				if err == OK:
+					oDataScript.data = file.get_as_text()
+					file.close()
+					oMessage.quick("Script reloaded from file.")
+					oScriptEditor.update_texteditor()
+					oScriptEditor.set_script_as_edited(false)
+
+	if LuaScript_enabled and currentFilePaths.has("LUA"):
+		var file_info = currentFilePaths["LUA"]
+		var file_path = file_info[PATHSTRING]
+		var stored_modified_time = file_info[MODIFIED_DATE]
+		var current_modified_time = File.new().get_modified_time(file_path)
+
+		if stored_modified_time != current_modified_time:
+			file_info[MODIFIED_DATE] = current_modified_time
+			var file = File.new()
+			if file.file_exists(file_path):
+				var err = file.open(file_path, File.READ)
+				if err == OK:
+					oDataLua.data = file.get_as_text()
+					file.close()
+					oMessage.quick("Lua script reloaded from file.")
 

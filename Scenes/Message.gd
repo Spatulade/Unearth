@@ -3,13 +3,22 @@ onready var oUiMessages = Nodelist.list["oUiMessages"]
 
 var scnQuickMsg = preload('res://Scenes/QuickMsgInstance.tscn')
 var scnBigMsg = preload('res://Scenes/BigMessageInstance.tscn')
+var recentMessages = {}
 
 func quick(string):
+	var currentTime = OS.get_ticks_msec() / 1000.0
+	if recentMessages.has(string):
+		var lastTime = recentMessages[string]
+		if currentTime - lastTime < 3.0:
+			return
+	recentMessages[string] = currentTime
 	var id = scnQuickMsg.instance()
 	id.show_then_fade(string)
 	$VBoxContainer.add_child(id)
 
 func big(windowTitle, dialogText):
+	for i in 2:
+		yield(get_tree(),'idle_frame') # Fixes a problem where error messages are off center when they popup too early
 	
 	# Do not show big message if one already exists (which has the same message)
 	for i in oUiMessages.get_children():

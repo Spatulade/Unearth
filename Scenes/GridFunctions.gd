@@ -1,5 +1,17 @@
 extends Node
 
+func _ready():
+	get_viewport().connect("size_changed", self, "_on_window_maximized")
+
+func _on_window_maximized():
+	yield(get_tree(),'idle_frame')
+	var oPickSlabWindow = Nodelist.list["oPickSlabWindow"]
+	var oPickThingWindow = Nodelist.list["oPickThingWindow"]
+	if oPickSlabWindow.visible:
+		_on_GridWindow_resized(oPickSlabWindow)
+	if oPickThingWindow.visible:
+		_on_GridWindow_resized(oPickThingWindow)
+
 func _on_GridWindow_visibility_changed(callingNode): # Initial load for correct grid arrangement
 	if callingNode.visible == true:
 		for i in 2:
@@ -11,17 +23,7 @@ func _on_GridWindow_gui_input(event, callingNode):
 		if event.button_index == BUTTON_LEFT and event.pressed:
 			callingNode.raise()
 
-func _on_GridWindow_item_rect_changed(callingNode):
-	if Settings.haveInitializedAllSettings == false: return # Necessary because otherwise this signal is firing too early. Settings haven't loaded the values from the cfg file yet.
-	match callingNode.name:
-		"PropertiesWindow":
-			Settings.set_setting("details_viewer_window_position", callingNode.rect_position)
-		"PickSlabWindow":
-			Settings.set_setting("slab_window_size", callingNode.rect_size)
-			Settings.set_setting("slab_window_position", callingNode.rect_position)
-		"PickThingWindow":
-			Settings.set_setting("thing_window_size", callingNode.rect_size)
-			Settings.set_setting("thing_window_position", callingNode.rect_position)
+
 
 func _on_GridWindow_resized(callingNode):
 	var oGridContainer = callingNode.current_grid_container()

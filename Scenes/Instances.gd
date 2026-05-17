@@ -4,7 +4,7 @@ onready var oDataSlab = Nodelist.list["oDataSlab"]
 onready var oPlacingSettings = Nodelist.list["oPlacingSettings"]
 onready var oDataClm = Nodelist.list["oDataClm"]
 onready var oDataClmPos = Nodelist.list["oDataClmPos"]
-onready var oScriptHelpers = Nodelist.list["oScriptHelpers"]
+onready var oScriptMarkers = Nodelist.list["oScriptMarkers"]
 onready var oPlaceLockedCheckBox = Nodelist.list["oPlaceLockedCheckBox"]
 onready var oMirrorOptions = Nodelist.list["oMirrorOptions"]
 onready var oMirrorFlipCheckBox = Nodelist.list["oMirrorFlipCheckBox"]
@@ -53,7 +53,7 @@ func place_new_action_point(newThingType, newSubtype, newPosition, newOwnership)
 	id.data7 = 0
 	add_child(id)
 	
-	oScriptHelpers.start() # Update when action points change
+	oScriptMarkers.start() # Update when action points change
 
 enum {
 	MIRROR_THING
@@ -145,8 +145,11 @@ func mirror_deletion_of_instance(instanceBeingDeleted):
 						kill_instance(getNodeAtMirroredPosition)
 
 func placement_is_obstructed(thingType, placeSubtile):
+	placeSubtile = Vector2(floor(placeSubtile.x), floor(placeSubtile.y))
 	var detectTerrainHeight = oDataClm.height[oDataClmPos.get_cell_clmpos(placeSubtile.x,placeSubtile.y)]
 	if oPlaceThingsAnywhere.pressed == false and detectTerrainHeight >= 5 and thingType != Things.TYPE.EXTRA: # Lights and Action Points can always be placed anywhere
+		if oMirrorPlacementCheckBox.pressed == true:
+			oMessage.quick("Symmetrical placement obstructed at subtile " + str(placeSubtile))
 		return true
 	return false
 
@@ -261,7 +264,7 @@ func place_new_thing(newThingType, newSubtype, newPosition, newOwnership): # Pla
 			
 			if id.subtype in Things.LIST_OF_HEROGATES: # Hero Gate
 				id.herogateNumber = get_free_hero_gate_number() #originalInstance.herogateNumber
-			elif id.subtype == 133: # Mysterious Box
+			elif Things.is_custom_special_box(id.subtype) == true: # Special Box
 				id.boxNumber = oPlacingSettings.boxNumber
 			elif id.subtype in [2,7]: # Torch and Unlit Torch
 				for direction in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
@@ -297,6 +300,9 @@ func place_new_thing(newThingType, newSubtype, newPosition, newOwnership): # Pla
 		Things.TYPE.DOOR:
 			id.index = get_free_index_number()
 			id.doorLocked = oPlacingSettings.doorLocked
+			if oPlaceLockedCheckBox.visible == true:
+				id.doorLocked = int(oPlaceLockedCheckBox.pressed)
+			
 			if newSubtype == 0:
 				id.subtype = 1 #Depending on whether it was placed via autoslab or a hand placed Thing object.
 			var doorSlabData = Slabs.fetch_doorslab_data(slabID)

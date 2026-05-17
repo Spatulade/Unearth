@@ -39,8 +39,8 @@ const things = {
 		"WORD_OF_POWER" : "Word of Power Trap",
 		"LAVA" : "Lava Trap",
 		"TNT" : "Demolition Trap",
-		"DUMMYTRAP3" : "Dummy Trap 3",
-		"DUMMYTRAP4" : "Dummy Trap 4",
+		"SENTRY" : "Sentry Trap",
+		"BALLISTA" : "Ballista Trap",
 		"DUMMYTRAP5" : "Dummy Trap 5",
 		"DUMMYTRAP6" : "Dummy Trap 6",
 		"DUMMYTRAP7" : "Dummy Trap 7",
@@ -90,7 +90,7 @@ const things = {
 	TYPE.OBJECT : {
 		"BARREL" : "Barrel",
 		"TORCH" : "Torch",
-		"GOLD_CHEST" : "Gold Pot (500)",
+		"GOLD_CHEST" : "Large Gold Pot (500)",
 		"TEMPLE_STATUE" : "Lit Statue",
 		"SOUL_CONTAINER" : "Dungeon Heart",
 		"GOLD" : "Gold Pot (250)",
@@ -267,7 +267,8 @@ const things = {
 		"SPELLBOOK_FRZ" : "Freeze",
 		"SPELLBOOK_SLOW" : "Slow",
 		"SPELLBOOK_FLGT" : "Flight",
-		"SPELLBOOK_VSN" : "Vision"
+		"SPELLBOOK_VSN" : "Vision",
+		"SPELLBOOK_TUNLR" : "Create Tunneller"
 	}
 }
 

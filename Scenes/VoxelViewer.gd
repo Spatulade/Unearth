@@ -8,7 +8,7 @@ onready var oSlabsetIDSpinBox = Nodelist.list["oSlabsetIDSpinBox"]
 onready var oSlabsetWindow = Nodelist.list["oSlabsetWindow"]
 onready var oVariationNumberSpinBox = Nodelist.list["oVariationNumberSpinBox"]
 onready var oColumnsetControls = Nodelist.list["oColumnsetControls"]
-onready var oColumnEditorControls = Nodelist.list["oColumnEditorControls"]
+onready var oClmEditorControls = Nodelist.list["oClmEditorControls"]
 
 
 onready var oVoxelCamera = $"VoxelViewport/VoxelCameraPivotPoint/VoxelCamera"
@@ -31,6 +31,7 @@ enum {
 var viewObject = 0 setget set_object
 var column_count = 2048
 var previousObject = 0
+var disable_camera_animation = false
 
 func initialize():
 	if is_instance_valid(oDataClm) == false: return
@@ -73,11 +74,14 @@ func add_billboard_obj(tex, pos:Vector3):
 	if tex == null:
 		tex = preload('res://Art/Thing.png')
 		id.pixel_size = 0.004
-	
-	id.texture = tex
+
+	if tex is Texture:
+		id.texture = tex.duplicate(true)
+	else:
+		id.texture = tex
+
 	id.translation = pos
-	#id.offset.x = tex.get_width()*0.5
-	id.offset.y = tex.get_height()*0.5
+	id.offset.y = tex.get_height() * 0.5
 	$"%AttachedObjects".add_child(id)
 
 
@@ -108,12 +112,21 @@ func set_object(setVal):
 	if displayingType == DK_SLABSET:
 		setVal = clamp(setVal,0, 27)
 	if displayingType == MAP_COLUMN or displayingType == DK_COLUMN:
-		setVal = clamp(setVal,0, column_count-1)
+		setVal = clamp(setVal,1, column_count-1)
 	previousObject = viewObject
 	viewObject = setVal
 	
 	# Speed up camera movement speed if you change the object value by a lot, to get there quicker
-	oVoxelCamera.cameraShiftSpeed = clamp(0.02 * abs(previousObject-viewObject), 0.02, 0.3)
+	if disable_camera_animation:
+		# Set camera position directly without animation
+		if displayingType == DK_SLABSET:
+			oVoxelCameraPivotPoint.translation.z = viewObject*4
+			oVoxelCameraPivotPoint.translation.x = viewObject*4
+		else:
+			oVoxelCameraPivotPoint.translation.z = viewObject*2
+			oVoxelCameraPivotPoint.translation.x = viewObject*2
+	else:
+		oVoxelCamera.cameraShiftSpeed = clamp(0.02 * abs(previousObject-viewObject), 0.02, 0.3)
 	
 	do_one()
 	
@@ -125,10 +138,11 @@ func set_object(setVal):
 		pass
 	
 	if displayingType == MAP_COLUMN:
-		oColumnEditorControls.oColumnIndexSpinBox.value = setVal
+		oClmEditorControls.oColumnIndexSpinBox.value = setVal
 		oColumnDetails.update_details()
 	if displayingType == DK_COLUMN:
 		oColumnsetControls.oColumnIndexSpinBox.value = setVal
+		oColumnDetails.update_details()
 	
 	 # Reset camera back
 	oVoxelCameraPivotPoint.rotation_degrees.z = -28.125
@@ -273,9 +287,9 @@ func _on_ColumnIndexSpinBox_value_changed(value):
 	
 	match displayingType:
 		MAP_COLUMN:
-			oColumnEditorControls.oColumnIndexSpinBox.disconnect("value_changed",self,"_on_ColumnIndexSpinBox_value_changed")
+			oClmEditorControls.oColumnIndexSpinBox.disconnect("value_changed",self,"_on_ColumnIndexSpinBox_value_changed")
 			set_object(value)
-			oColumnEditorControls.oColumnIndexSpinBox.connect("value_changed",self,"_on_ColumnIndexSpinBox_value_changed")
+			oClmEditorControls.oColumnIndexSpinBox.connect("value_changed",self,"_on_ColumnIndexSpinBox_value_changed")
 		DK_COLUMN:
 			oColumnsetControls.oColumnIndexSpinBox.disconnect("value_changed",self,"_on_ColumnIndexSpinBox_value_changed")
 			set_object(value)

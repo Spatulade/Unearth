@@ -2,8 +2,10 @@ extends 'res://Class/ClmClass.gd'
 onready var oMessage = Nodelist.list["oMessage"]
 onready var oTimerUpdateColumnEntries = Nodelist.list["oTimerUpdateColumnEntries"]
 onready var oDataClmPos = Nodelist.list["oDataClmPos"]
+onready var oFlashingColumns = Nodelist.list["oFlashingColumns"]
 onready var oOverheadGraphics = Nodelist.list["oOverheadGraphics"]
 onready var oUniversalDetails = Nodelist.list["oUniversalDetails"]
+onready var oConfirmClmEntriesFull = Nodelist.list["oConfirmClmEntriesFull"]
 
 var column_count = 8192
 
@@ -18,6 +20,10 @@ var cubes = []
 var floorTexture = []
 
 var default_data = {}
+
+func _ready():
+	if is_instance_valid(oConfirmClmEntriesFull):
+		oConfirmClmEntriesFull.connect("confirmed", self, "_on_ConfirmClmEntriesFull_confirmed")
 
 func store_default_data():
 	default_data["utilized"] = utilized.duplicate(true)
@@ -60,7 +66,7 @@ func index_entry(cubeArray, setFloorID):
 		orientation[index] = 0
 		solidMask[index] = calculate_solid_mask(cubeArray)
 		permanent[index] = 1 # Does this affect whether columns get reset?
-		lintel[index] = 0
+		lintel[index] = calculate_lintel(cubeArray)
 		height[index] = get_height_from_bottom(cubeArray)
 		cubes[index] = cubeArray
 		floorTexture[index] = setFloorID
@@ -68,7 +74,7 @@ func index_entry(cubeArray, setFloorID):
 		oTimerUpdateColumnEntries.start()
 		return index
 
-	oMessage.big("Error", "Clm entries are full. Try the 'Clear Unused' button in the Map Columns window.")
+	Utils.popup_centered(oConfirmClmEntriesFull)
 	return 0
 
 var a_column_has_changed_since_last_updating_utilized = false
@@ -87,23 +93,16 @@ func update_all_utilized():
 	
 	print('All CLM utilized updated in '+str(OS.get_ticks_msec()-CODETIME_START)+'ms')
 
-func update_all_solid_mask():
-	var CODETIME_START = OS.get_ticks_msec()
-	for index in column_count:
-		solidMask[index] = calculate_solid_mask(cubes[index])
-	print('All CLM solid bitmask updated in '+str(OS.get_ticks_msec()-CODETIME_START)+'ms')
 
-
-
+func _on_ConfirmClmEntriesFull_confirmed():
+	clear_unused_entries()
+	oFlashingColumns.generate_clmdata_texture()
 
 func clear_unused_entries():
 	update_all_utilized()
 	for clmIndex in column_count:
 		if utilized[clmIndex] == 0:
 			delete_column(clmIndex)
-
-
-
 
 
 func sort_columns_by_utilized():
@@ -153,6 +152,7 @@ func sort_columns_by_utilized():
 		for xSlab in range(0, M.xSize):
 			shapePositionArray.append(Vector2(xSlab,ySlab))
 	
+	oFlashingColumns.generate_clmdata_texture()
 	oOverheadGraphics.overhead2d_update_rect_single_threaded(shapePositionArray)
 	
 	utilized[0] = 0 # Pretend that the utilized value is maximum for column 0, so it's placed first. Set it back to 0 afterwards.

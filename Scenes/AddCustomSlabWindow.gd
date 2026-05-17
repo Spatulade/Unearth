@@ -1,6 +1,6 @@
 extends WindowDialog
 onready var oAddCustomSlabWindow = Nodelist.list["oAddCustomSlabWindow"]
-onready var oColumnEditorVoxelView = Nodelist.list["oColumnEditorVoxelView"]
+onready var oClmEditorVoxelView = Nodelist.list["oClmEditorVoxelView"]
 onready var oCustomSlabVoxelView = Nodelist.list["oCustomSlabVoxelView"]
 onready var oGridContainerCustomColumns3x3 = Nodelist.list["oGridContainerCustomColumns3x3"]
 onready var oCustomSlabID = Nodelist.list["oCustomSlabID"]
@@ -15,15 +15,16 @@ onready var oSlabWibbleOptionButton = Nodelist.list["oSlabWibbleOptionButton"]
 onready var oSlabLiquidOptionButton = Nodelist.list["oSlabLiquidOptionButton"]
 onready var oWibbleEdgesCheckBox = Nodelist.list["oWibbleEdgesCheckBox"]
 onready var oWibbleEdgesSpacing = Nodelist.list["oWibbleEdgesSpacing"]
-onready var oColumnEditorControls = Nodelist.list["oColumnEditorControls"]
+onready var oClmEditorControls = Nodelist.list["oClmEditorControls"]
 onready var oSlabsetWindow = Nodelist.list["oSlabsetWindow"]
 onready var oDataClmPos = Nodelist.list["oDataClmPos"]
-onready var oColumnEditor = Nodelist.list["oColumnEditor"]
+onready var oTabClmEditor = Nodelist.list["oTabClmEditor"]
 onready var oFakeCustomColumnsPanelContainer = Nodelist.list["oFakeCustomColumnsPanelContainer"]
 onready var oSlabBitmaskOptionButton = Nodelist.list["oSlabBitmaskOptionButton"]
 onready var oSlabIsSolidOptionButton = Nodelist.list["oSlabIsSolidOptionButton"]
 onready var oSlabOwnableOptionButton = Nodelist.list["oSlabOwnableOptionButton"]
 onready var oPassageLabel = Nodelist.list["oPassageLabel"]
+onready var oSlabsetTabs = Nodelist.list["oSlabsetTabs"]
 
 onready var oCustomDoorThingLabel = Nodelist.list["oCustomDoorThingLabel"]
 onready var oCustomDoorThing = Nodelist.list["oCustomDoorThing"]
@@ -63,11 +64,14 @@ func _on_AddCustomSlabWindow_visibility_changed():
 		
 
 func shortcut_pressed(id):
-	var spinbox = id.get_node("CustomSpinBox")
-	var clmIndex = spinbox.value
-	
-	Utils.popup_centered(oColumnEditor)
-	oColumnEditorControls.oColumnIndexSpinBox.value = clmIndex
+	if oSlabsetTabs.get_tab_hidden(2) == false:
+		oSlabsetWindow.popup_on_right_side()
+		oSlabsetTabs.current_tab = 2
+		var spinbox = id.get_node("CustomSpinBox")
+		var clmIndex = spinbox.value
+		oClmEditorControls.oColumnIndexSpinBox.value = clmIndex
+	else:
+		oMessage.quick("CLM data tab is currently disabled (see Preferences->UI)")
 
 
 func _on_CustomSlabID_value_changed(value):
@@ -181,6 +185,7 @@ func _on_FakeSlabHelpButton_pressed():
 
 func _on_HelpCustomSlabsButton_pressed():
 	var helptext = ""
+	helptext += "Note these are CLM data index numbers, not Columnset index numbers. \n"
 	helptext += "After adding a fake slab, right click on its portrait within the slab selection window to remove it from the editor."
 	oMessage.big("Help",helptext)
 

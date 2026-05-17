@@ -3,19 +3,20 @@ onready var oPickThingWindow = Nodelist.list["oPickThingWindow"]
 onready var oSelection = Nodelist.list["oSelection"]
 onready var oSlabTabs = Nodelist.list["oSlabTabs"]
 onready var oDataClm = Nodelist.list["oDataClm"]
-onready var oTextureCache = Nodelist.list["oTextureCache"]
+onready var oTMapLoader = Nodelist.list["oTMapLoader"]
 onready var oGridFunctions = Nodelist.list["oGridFunctions"]
 onready var oSlabStyle = Nodelist.list["oSlabStyle"]
 onready var oPlacingSettings = Nodelist.list["oPlacingSettings"]
 onready var oOnlyOwnership = Nodelist.list["oOnlyOwnership"]
 onready var oDisplaySlxNumbers = Nodelist.list["oDisplaySlxNumbers"]
 onready var oCustomSlabSystem = Nodelist.list["oCustomSlabSystem"]
-onready var oColumnEditor = Nodelist.list["oColumnEditor"]
+onready var oTabClmEditor = Nodelist.list["oTabClmEditor"]
 onready var oPlaceLockedCheckBox = Nodelist.list["oPlaceLockedCheckBox"]
 onready var oConfirmDeleteFakeSlab = Nodelist.list["oConfirmDeleteFakeSlab"]
 onready var oAddCustomSlabWindow = Nodelist.list["oAddCustomSlabWindow"]
 onready var oOverheadGraphics = Nodelist.list["oOverheadGraphics"]
 onready var oSlabNameDisplay = Nodelist.list["oSlabNameDisplay"]
+onready var oUi = Nodelist.list["oUi"]
 
 onready var oSelectedRect = $Clippy/SelectedRect
 onready var oCenteredLabel = $Clippy/CenteredLabel
@@ -46,7 +47,7 @@ func _ready():
 	connect("visibility_changed",oGridFunctions,"_on_GridWindow_visibility_changed",[self])
 	connect("gui_input",oGridFunctions,"_on_GridWindow_gui_input",[self])
 	connect("item_rect_changed",self,"rect_changed_start_timer") # Using a timer to reduce lag
-	rectChangedTimer.connect("timeout", oGridFunctions, "_on_GridWindow_item_rect_changed", [self])
+	rectChangedTimer.connect("timeout", oUi, "_on_any_window_was_modified", [self])
 	rectChangedTimer.one_shot = true
 	add_child(rectChangedTimer)
 	
@@ -124,7 +125,12 @@ func add_slabs():
 	
 	if visible == true:
 		set_selection(oSelection.paintSlab) # Default initial selection
+	
 	print('add_slabs: ' + str(OS.get_ticks_msec() - CODETIME_START) + 'ms')
+	
+	if is_instance_valid(oTMapLoader):
+		yield(get_tree(),'idle_frame') # Fixes a bug where textures go dark when opening slabset window
+		oTMapLoader.apply_texture_pack()
 
 func custom_slab_add_new_button():
 	var scene = preload('res://Scenes/GenericGridItem.tscn')

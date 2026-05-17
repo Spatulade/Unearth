@@ -16,10 +16,10 @@ var config = ConfigFile.new()
 var listOfSettings = [
 	"REMEMBER_TMAPA_PATHS",
 	"executable_path",
-	"file_viewer_window_size",
-	"file_viewer_window_position",
+	"subwindows_status",
 	"vsync",
 	"framerate_limit",
+	"ssaa",
 	"always_decompress",
 	"msaa",
 	"dk_commands",
@@ -39,20 +39,18 @@ var listOfSettings = [
 	"font_size_creature_level_max",
 	"script_icon_scale",
 	"script_icon_max",
-	"slab_window_size",
-	"slab_window_position",
+	"facing_arrow_scale",
+	"facing_arrow_max",
 	"slab_window_scale",
-	"thing_window_size",
-	"thing_window_position",
 	"thing_window_scale",
 	"script_editor_font_size",
+	"last_changelog_displayed",
 	
 #	"owner_window_size",
 #	"owner_window_position",
 #	"owner_window_scale",
 	
 	#"display_details_viewer",
-	"details_viewer_window_position",
 	"slab_style_window_size",
 	"slab_style_window_position",
 	"ownable_natural_terrain",
@@ -76,7 +74,14 @@ var listOfSettings = [
 	"chance_path_stone",
 	"auto_open_map_settings",
 	"fortify",
+	"place_locked",
 	"automatic_torch_slabs",
+	"show_clm_data_tab",
+	"allow_reserved_id_editing",
+	"pause_when_minimized",
+	"low_processor_mode_sleep_usec",
+	"inputs_update_screen",
+	"rendering_rate",
 	# These four are read inside Viewport script
 #	"editor_window_position",
 #	"editor_window_size",
@@ -121,8 +126,16 @@ func executable_stuff():
 	
 	# Choose executable path upon first starting
 	if cfg_has_setting("executable_path") == false:
-		var oChooseDkExe = $'../Main/Ui/UiSystem/ChooseDkExe'
-		Utils.popup_centered(oChooseDkExe)
+		# Try auto-detection first
+		var autoDetectedPath = auto_detect_executable()
+		if autoDetectedPath != "":
+			set_setting("executable_path", autoDetectedPath)
+		else:
+			# Auto-detection failed, show file dialog
+			for i in 3:
+				yield(get_tree(),'idle_frame')
+			var oChooseDkExe = $'../Main/Ui/UiSystem/ChooseDkExe'
+			Utils.popup_centered(oChooseDkExe)
 	else:
 		# Test whenever you restart, to always show the error if there's a problem
 		if oGame.EXECUTABLE_PATH != "": # Don't provide an error when an executable hasn't even been set
@@ -133,6 +146,19 @@ func cfg_has_setting(setting):
 
 func cfg_remove_setting(setting):
 	return config.erase_section_key("settings", setting)
+
+
+func auto_detect_executable():
+	var directories = [OS.get_executable_path().get_base_dir(), OS.get_executable_path().get_base_dir().get_base_dir()]
+	var executables = [["keeperfx", "exe"], ["keeper", "exe"]]
+	
+	for directory in directories:
+		for executable in executables:
+			var foundPath = Utils.case_insensitive_file(directory, executable[0], executable[1])
+			if foundPath != "":
+				return foundPath
+	
+	return ""
 
 
 
@@ -158,21 +184,17 @@ func read_all():
 func game_setting(doWhat,string,value):
 	match string:
 		"REMEMBER_TMAPA_PATHS":
-			var oTextureCache = $'../Main/TextureCache'
-			if doWhat == SET: oTextureCache.LOAD_TMAPA_PATHS_FROM_SETTINGS(value)
-			if doWhat == GET: return oTextureCache.REMEMBER_TMAPA_PATHS
+			var oTMapLoader = $'../Main/TMapLoader'
+			if doWhat == SET: oTMapLoader.load_remembered_paths(value)
+			if doWhat == GET: return oTMapLoader.REMEMBER_TMAPA_PATHS
 		"executable_path":
 			var oGame = $'../Main/Game'
 			if doWhat == SET: oGame.set_paths(value)
 			if doWhat == GET: return oGame.EXECUTABLE_PATH
-		"file_viewer_window_size":
-			var oMapBrowser = $'../Main/Ui/UiSystem/MapBrowser'
-			if doWhat == SET: oMapBrowser.rect_size = value
-			if doWhat == GET: return oMapBrowser.rect_size
-		"file_viewer_window_position":
-			var oMapBrowser = $'../Main/Ui/UiSystem/MapBrowser'
-			if doWhat == SET: oMapBrowser.rect_position = value
-			if doWhat == GET: return oMapBrowser.rect_position
+		"subwindows_status":
+			var oUi = $'../Main/Ui'
+			if doWhat == SET: oUi.subwindows_status = value
+			if doWhat == GET: return oUi.subwindows_status
 		"vsync":
 			if doWhat == SET: OS.vsync_enabled = value
 			if doWhat == GET: return OS.vsync_enabled
@@ -180,11 +202,16 @@ func game_setting(doWhat,string,value):
 			var oEditor = $'../Main/Editor'
 			if doWhat == SET: oEditor.framerate_limit = value
 			if doWhat == GET: return oEditor.framerate_limit
+		"ssaa":
+			var oEditor = $'../Main/Editor'
+			if doWhat == SET: oEditor.ssaa_level = value
+			if doWhat == GET: return oEditor.ssaa_level
 		"always_decompress":
 			var oOpenMap = $'../Main/OpenMap'
 			if doWhat == SET: oOpenMap.ALWAYS_DECOMPRESS = value
 			if doWhat == GET: return oOpenMap.ALWAYS_DECOMPRESS
 		"msaa":
+			
 			var oViewport = get_viewport()
 			if doWhat == SET: oViewport.msaa = value
 			if doWhat == GET: return oViewport.msaa
@@ -249,33 +276,28 @@ func game_setting(doWhat,string,value):
 			if doWhat == SET: oUi.FONT_SIZE_CR_LVL_MAX = value
 			if doWhat == GET: return oUi.FONT_SIZE_CR_LVL_MAX
 		"script_icon_scale":
-			var oScriptHelpers = $'../Main/Game2D/ScriptHelpers'
-			if doWhat == SET: oScriptHelpers.SCRIPT_ICON_SIZE_BASE = value
-			if doWhat == GET: return oScriptHelpers.SCRIPT_ICON_SIZE_BASE
+			var oScriptMarkers = $'../Main/Game2D/ScriptMarkers'
+			if doWhat == SET: oScriptMarkers.SCRIPT_ICON_SIZE_BASE = value
+			if doWhat == GET: return oScriptMarkers.SCRIPT_ICON_SIZE_BASE
 		"script_icon_max":
-			var oScriptHelpers = $'../Main/Game2D/ScriptHelpers'
-			if doWhat == SET: oScriptHelpers.SCRIPT_ICON_SIZE_MAX = value
-			if doWhat == GET: return oScriptHelpers.SCRIPT_ICON_SIZE_MAX
-		"slab_window_size":
-			var oPickSlabWindow = $'../Main/Ui/UiTools/PickSlabWindow'
-			if doWhat == SET: oPickSlabWindow.rect_size = value
-			if doWhat == GET: return oPickSlabWindow.rect_size
-		"slab_window_position":
-			var oPickSlabWindow = $'../Main/Ui/UiTools/PickSlabWindow'
-			if doWhat == SET: oPickSlabWindow.rect_position = value
-			if doWhat == GET: return oPickSlabWindow.rect_position
+			var oScriptMarkers = $'../Main/Game2D/ScriptMarkers'
+			if doWhat == SET: oScriptMarkers.SCRIPT_ICON_SIZE_MAX = value
+			if doWhat == GET: return oScriptMarkers.SCRIPT_ICON_SIZE_MAX
+		"facing_arrow_scale":
+			var oUi = $'../Main/Ui'
+			if doWhat == SET: oUi.FACING_ARROW_SIZE_BASE = value
+			if doWhat == GET: return oUi.FACING_ARROW_SIZE_BASE
+		"facing_arrow_max":
+			var oUi = $'../Main/Ui'
+			if doWhat == SET: oUi.FACING_ARROW_SIZE_MAX = value
+			if doWhat == GET: return oUi.FACING_ARROW_SIZE_MAX
+
 		"slab_window_scale":
 			var oPickSlabWindow = $'../Main/Ui/UiTools/PickSlabWindow'
 			if doWhat == SET: oPickSlabWindow.grid_window_scale = value
 			if doWhat == GET: return oPickSlabWindow.grid_window_scale
-		"thing_window_size":
-			var oPickThingWindow = $'../Main/Ui/UiTools/PickThingWindow'
-			if doWhat == SET: oPickThingWindow.rect_size = value
-			if doWhat == GET: return oPickThingWindow.rect_size
-		"thing_window_position":
-			var oPickThingWindow = $'../Main/Ui/UiTools/PickThingWindow'
-			if doWhat == SET: oPickThingWindow.rect_position = value
-			if doWhat == GET: return oPickThingWindow.rect_position
+
+
 		"thing_window_scale":
 			var oPickThingWindow = $'../Main/Ui/UiTools/PickThingWindow'
 			if doWhat == SET: oPickThingWindow.grid_window_scale = value
@@ -305,10 +327,7 @@ func game_setting(doWhat,string,value):
 		"editor_window_fullscreen_state":
 			if doWhat == SET: OS.window_fullscreen = value
 			if doWhat == GET: return OS.window_fullscreen
-		"details_viewer_window_position":
-			var oPropertiesWindow = $'../Main/Ui/UiTools/PropertiesWindow'
-			if doWhat == SET: oPropertiesWindow.rect_position = value
-			if doWhat == GET: return oPropertiesWindow.rect_position
+
 #		"display_details_viewer":
 #			var oPropertiesWindow = $'../Main/Ui/UiTools/PropertiesWindow'
 #			if doWhat == SET: oPropertiesWindow.display_details = value
@@ -374,7 +393,7 @@ func game_setting(doWhat,string,value):
 			if doWhat == SET: oDamagedWallLineEdit.text = value
 			if doWhat == GET: return oDamagedWallLineEdit.text
 		"recently_opened":
-			var oMenu = $'../Main/Ui/UiSystem/Menu'
+			var oMenu = $'../Main/Ui/UiTop/Menu'
 			if doWhat == SET: oMenu.initialize_recently_opened(value)
 			if doWhat == GET: return oMenu.recentlyOpened
 		"placing_tutorial":
@@ -382,7 +401,7 @@ func game_setting(doWhat,string,value):
 			if doWhat == SET: oPlacingTipsButton.visible = value
 			if doWhat == GET: return oPlacingTipsButton.visible
 		"script_editor_font_size":
-			var oScriptEditor = $'../Main/Ui/UiSystem/MapSettingsWindow/MapSettingsTabs/ScriptEditor'
+			var oScriptEditor = $'../Main/Ui/UiSystem/ScriptEditorWindow/MarginContainer/ScrollContainer/ScriptEditor'
 			if doWhat == SET: oScriptEditor.set_SCRIPT_EDITOR_FONT_SIZE(value)
 			if doWhat == GET: return oScriptEditor.get_SCRIPT_EDITOR_FONT_SIZE()
 		"editor_font_size":
@@ -409,6 +428,41 @@ func game_setting(doWhat,string,value):
 			var oFortifyCheckBox = $"../Main/Ui/UiTools/PropertiesWindow/VBoxContainer/PropertiesTabs/PlacingSettings/FortifyCheckBox"
 			if doWhat == SET: oFortifyCheckBox.pressed = value
 			if doWhat == GET: return oFortifyCheckBox.pressed
+		"place_locked":
+			var oPlaceLockedCheckBox = $"../Main/Ui/UiTools/PropertiesWindow/VBoxContainer/PropertiesTabs/PlacingSettings/EditingTools/PlaceLockedCheckBox"
+			if doWhat == SET: oPlaceLockedCheckBox.pressed = value
+			if doWhat == GET: return oPlaceLockedCheckBox.pressed
+		"last_changelog_displayed":
+			if doWhat == SET: write_cfg("last_changelog_displayed", value)
+			if doWhat == GET: return read_cfg("last_changelog_displayed")
+		"show_clm_data_tab":
+			var oShowCLMDataTabCheckbox = $'../Main/Ui/UiSystem/PreferencesWindow/VBoxContainer/TabSettings/TabUI/VBoxContainer/ShowCLMDataTabCheckbox'
+			if doWhat == SET: oShowCLMDataTabCheckbox.pressed = value
+			if doWhat == GET: return oShowCLMDataTabCheckbox.pressed
+		"allow_reserved_id_editing":
+			var oAllowReservedIdEditingCheckbox = $'../Main/Ui/UiSystem/PreferencesWindow/VBoxContainer/TabSettings/TabUI/VBoxContainer/AllowReservedIdEditingCheckbox'
+			if doWhat == SET: oAllowReservedIdEditingCheckbox.pressed = value
+			if doWhat == GET: return oAllowReservedIdEditingCheckbox.pressed
+		"pause_when_minimized":
+			var oPauseWhenMinimizedCheckbox = $'../Main/Ui/UiSystem/PreferencesWindow/VBoxContainer/TabSettings/TabPerformance/VBoxContainer/PauseWhenMinimizedCheckbox'
+			if doWhat == SET: oPauseWhenMinimizedCheckbox.pressed = value
+			if doWhat == GET: return oPauseWhenMinimizedCheckbox.pressed
+		"low_processor_mode_sleep_usec":
+			var oLowProcessorModeSleepUsec = $'../Main/Ui/UiSystem/PreferencesWindow/VBoxContainer/TabSettings/TabPerformance/VBoxContainer/LowProcessorModeSleepUsec'
+			var oEditor = $'../Main/Editor'
+			if doWhat == SET:
+				oEditor.low_processor_sleep_value = value
+				oEditor.low_processor_enabled = value > 0
+				oLowProcessorModeSleepUsec.update_appearance(value)
+			if doWhat == GET: return oEditor.low_processor_sleep_value
+		"inputs_update_screen":
+			var oEditor = $'../Main/Editor'
+			if doWhat == SET: oEditor.inputs_update_screen = value
+			if doWhat == GET: return oEditor.inputs_update_screen
+		"rendering_rate":
+			var oEditor = $'../Main/Editor'
+			if doWhat == SET: oEditor.rendering_rate = value
+			if doWhat == GET: return oEditor.rendering_rate
 
 func delete_settings():
 	var dir = Directory.new()

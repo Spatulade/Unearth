@@ -12,7 +12,7 @@ onready var oOverheadOwnership = Nodelist.list["oOverheadOwnership"]
 onready var oDataLevelStyle = Nodelist.list["oDataLevelStyle"]
 onready var oCamera2D = Nodelist.list["oCamera2D"]
 onready var oDataClm = Nodelist.list["oDataClm"]
-onready var oTextureCache = Nodelist.list["oTextureCache"]
+onready var oTMapLoader = Nodelist.list["oTMapLoader"]
 onready var oUiTools = Nodelist.list["oUiTools"]
 onready var oOverheadGraphics = Nodelist.list["oOverheadGraphics"]
 onready var oPickSlabWindow = Nodelist.list["oPickSlabWindow"]
@@ -22,11 +22,11 @@ onready var oImageAsMapDialog = Nodelist.list["oImageAsMapDialog"]
 onready var oDataMapName = Nodelist.list["oDataMapName"]
 onready var oMapSettingsWindow = Nodelist.list["oMapSettingsWindow"]
 onready var oDataClmPos = Nodelist.list["oDataClmPos"]
-onready var oScriptHelpers = Nodelist.list["oScriptHelpers"]
+onready var oScriptMarkers = Nodelist.list["oScriptMarkers"]
 onready var oMenu = Nodelist.list["oMenu"]
 onready var oDataSlab = Nodelist.list["oDataSlab"]
 onready var oDataLiquid = Nodelist.list["oDataLiquid"]
-onready var oColumnEditor = Nodelist.list["oColumnEditor"]
+onready var oTabClmEditor = Nodelist.list["oTabClmEditor"]
 onready var oScriptEditor = Nodelist.list["oScriptEditor"]
 onready var oScriptTextEdit = Nodelist.list["oScriptTextEdit"]
 onready var oDataLof = Nodelist.list["oDataLof"]
@@ -49,6 +49,11 @@ onready var oOwnerSelection = Nodelist.list["oOwnerSelection"]
 onready var oScriptGenerator = Nodelist.list["oScriptGenerator"]
 onready var oOnlyOwnership = Nodelist.list["oOnlyOwnership"]
 onready var oCfgLoader = Nodelist.list["oCfgLoader"]
+onready var oTMapNames = Nodelist.list["oTMapNames"]
+onready var oSlabsetWindow = Nodelist.list["oSlabsetWindow"]
+onready var oConfigFileManager = Nodelist.list["oConfigFileManager"]
+onready var oCfgEditor = Nodelist.list["oCfgEditor"]
+
 
 var TOTAL_TIME_TO_OPEN_MAP
 
@@ -70,8 +75,12 @@ func start():
 			#for i in 200:
 			#	yield(get_tree(), "idle_frame")
 			#oCurrentMap.clear_map()
-			open_map("C:/Games/Dungeon Keeper/levels/personal/map00001.slb")
-			#open_map("D:/Dungeon Keeper/campgns/dpthshdw/map00014.slb")
+			#open_map("C:/Games/Dungeon Keeper GOG/levels/MAP00001.SLB")
+			#open_map("C:/Games/Dungeon Keeper/levels/deepdngn/map00084.slb")
+			#open_map("C:/Games/Dungeon Keeper/levels/personal/map00001.slb")
+			#for i in 50:
+			#	yield(get_tree(),'idle_frame')
+			open_map("C:/Games/Dungeon Keeper/campgns/dk2/map00200.slb")
 		else:
 			# initialize a cleared map
 			oCurrentMap.clear_map()
@@ -96,9 +105,9 @@ func open_map(filePath):
 		return
 	
 	# Prevent opening any maps under any circumstance if textures haven't been loaded. (Fix to launching via file association)
-	if oTextureCache.texturesLoadedState != oTextureCache.LOADING_SUCCESS:
-		oMessage.quick("Error: Cannot open map because textures haven't been loaded")
-		return
+#	if oTMapLoader.texturesLoadedState != oTMapLoader.LOADING_SUCCESS:
+#		oMessage.quick("Error: Cannot open map because textures haven't been loaded")
+#		return
 	
 	print("----------- Opening map ------------")
 	TOTAL_TIME_TO_OPEN_MAP = OS.get_ticks_msec()
@@ -110,6 +119,18 @@ func open_map(filePath):
 	
 	# Open all map file types
 	oCurrentMap.currentFilePaths = get_accompanying_files(map)
+	oCurrentMap.DKScript_enabled = oCurrentMap.currentFilePaths.has("TXT")
+	oCurrentMap.LuaScript_enabled = oCurrentMap.currentFilePaths.has("LUA")
+	
+	# Set map format early so CfgLoader knows which format to use
+	if map == "": # If it's a new map, then map format is set to the format you selected on New Map window
+		oCurrentFormat.selected = oSetNewFormat.selected
+	else:
+		if oCurrentMap.currentFilePaths.has("TNGFX") == true:
+			oCurrentFormat.selected = Constants.KfxFormat
+		else:
+			oCurrentFormat.selected = Constants.ClassicFormat
+	
 	compressedFiles.clear()
 	for i in oCurrentMap.currentFilePaths.values():
 		if oRNC.check_for_rnc_compression(i[oCurrentMap.PATHSTRING]) == true:
@@ -124,28 +145,14 @@ func open_map(filePath):
 			oDataLof.use_size(oXSizeLine.text.to_int(), oYSizeLine.text.to_int())
 			print("NEW MAPSIZE = " + str(M.xSize) + " " + str(M.ySize))
 		
-		
-		# Set map format
-		if map == "": # If it's a new map, then map format is set to the format you selected on New Map window
-			oCurrentFormat.selected = oSetNewFormat.selected
-		else:
-			if oCurrentMap.currentFilePaths.has("TNGFX") == true:
-				oCurrentFormat.selected = Constants.KfxFormat
-			else:
-				oCurrentFormat.selected = Constants.ClassicFormat
-		
 		for EXT in oBuffers.FILE_TYPES:
 			if oCurrentMap.currentFilePaths.has(EXT) == true:
 				
 				# Don't bother reading original formats if KFX format files have been found
-				if EXT == "TNG" and oCurrentMap.currentFilePaths.has("TNGFX") == true:
-					continue
-				if EXT == "APT" and oCurrentMap.currentFilePaths.has("APTFX") == true:
-					continue
-				if EXT == "LGT" and oCurrentMap.currentFilePaths.has("LGTFX") == true:
-					continue
-				if EXT == "LIF" and oCurrentMap.currentFilePaths.has("LOF") == true:
-					continue
+				if EXT == "TNG" and oCurrentMap.currentFilePaths.has("TNGFX") == true: continue
+				if EXT == "APT" and oCurrentMap.currentFilePaths.has("APTFX") == true: continue
+				if EXT == "LGT" and oCurrentMap.currentFilePaths.has("LGTFX") == true: continue
+				if EXT == "LIF" and oCurrentMap.currentFilePaths.has("LOF") == true: continue
 				
 				var readPath = oCurrentMap.currentFilePaths[EXT][oCurrentMap.PATHSTRING]
 				oBuffers.read(readPath, EXT.to_upper())
@@ -166,7 +173,7 @@ func open_map(filePath):
 					for ySlab in M.ySize:
 						for xSlab in M.xSize:
 							var slabID = oDataSlab.get_cell(xSlab, ySlab)
-							oDataLiquid.set_cell(xSlab, ySlab, Slabs.data[slabID][Slabs.REMEMBER_TYPE])
+							oDataLiquid.set_cell(xSlab, ySlab, Slabs.data[slabID][Slabs.LIQUID_TYPE])
 		
 		continue_load(map)
 		continue_load_openmap(map)
@@ -174,10 +181,11 @@ func open_map(filePath):
 		print("----------------------------------------------")
 	else:
 		if ALWAYS_DECOMPRESS == false:
-			oConfirmDecompression.dialog_text = "In order to open this map, these files must be decompressed: \n\n" #'Unable to open map, it contains files which have RNC compression: \n\n'
+			var dialogText = "In order to open this map, these files must be decompressed: \n\n" #'Unable to open map, it contains files which have RNC compression: \n\n'
 			for i in compressedFiles:
-				oConfirmDecompression.dialog_text += i + '\n'
-			oConfirmDecompression.dialog_text += "\n" + "This will result in overwriting, continue?" + "\n" #Decompress these files? (Warning: they will be overwritten)
+				dialogText += i + '\n'
+			dialogText += "\n" + "This will result in overwriting, continue?" #Decompress these files? (Warning: they will be overwritten)
+			oConfirmDecompression.set_dialog_text(dialogText)
 			Utils.popup_centered(oConfirmDecompression)
 		else:
 			# Begin decompression without confirmation dialog
@@ -189,13 +197,14 @@ func continue_load(map):
 	oEditor.update_boundaries()
 	oScriptEditor.initialize_for_new_map()
 	oOverheadOwnership.start()
-	oScriptHelpers.start()
+	oScriptMarkers.start()
 	
-	oOverheadGraphics.update_full_overhead_map()
+	oTMapLoader.start()
+	oTMapNames.update_texture_map_names() # Update names after tmap loader has started
+	oOverheadGraphics.update_full_overhead_map() # 'Display fields' are created for each texture loaded
+	oTMapLoader.apply_texture_pack()
 	
 	oDataClm.count_filled_clm_entries()
-	
-	oTextureCache.set_current_texture_pack()
 	
 	# finalize_map_opening
 	oEditor.set_view_2d()
@@ -221,10 +230,19 @@ func continue_load_openmap(map):
 	oOnlyOwnership.update_grid_items()
 	oDynamicMapTree.highlight_current_map()
 	oCurrentMap.set_path_and_title(map)
-	oCamera2D.reset_camera(M.xSize, M.ySize)
 	oUndoStates.clear_history()
 	oGuidelines.update()
 	oMapSettingsWindow.visible = false
+	oSlabsetWindow.visible = false
+	oCfgEditor.visible = false
+	
+	# Update config file paths in oCurrentMap
+	oCurrentMap.update_config_paths()
+	
+	# Clear local config file tracking when opening a new map
+	# This is now handled by CfgLoader calling oConfigFileManager.clear_paths()
+	# oConfigFileManager.clear_local_files() was removed
+	
 	if map == "":
 		oMessage.quick('New map')
 	else:
@@ -238,13 +256,22 @@ func continue_load_openmap(map):
 		oEditor.mapHasBeenEdited = true
 		oMessage.quick("Fixed column index 0, re-save your map.")
 	oDataClm.store_default_data()
+	
+	for i in 3:
+		yield(get_tree(),'idle_frame')
+	oCamera2D.reset_camera(M.xSize, M.ySize)
 
 
 func _on_ConfirmDecompression_confirmed():
 	print('Attempting to decompress...')
 	
 	for path in compressedFiles:
-		oRNC.decompress(path)
+		var CODETIME_START = OS.get_ticks_msec()
+		var result = oRNC.decompress(path)
+		if result.empty():
+			printerr("Failed to decompress: ", path)
+		else:
+			print('RNC decompressing ' + path + " : " + str(OS.get_ticks_msec() - CODETIME_START) + 'ms')
 	
 	# Retry opening the map
 	open_map(compressedFiles[0])

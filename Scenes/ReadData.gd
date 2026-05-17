@@ -15,6 +15,7 @@ onready var oDataFakeSlab = Nodelist.list["oDataFakeSlab"]
 onready var oDataLof = Nodelist.list["oDataLof"]
 onready var oMessage = Nodelist.list["oMessage"]
 onready var oCurrentFormat = Nodelist.list["oCurrentFormat"]
+onready var oDataLua = Nodelist.list["oDataLua"]
 
 var value # just so I don't have to initialize the var in every function
 
@@ -148,7 +149,15 @@ func read_txt(buffer):
 	value = value.replace(char(0x200B), "") # Remove zero width spaces
 	oDataScript.data = value
 func new_txt():
-	pass
+	oDataScript.data = ""
+
+func read_lua(buffer):
+	buffer.seek(0)
+	value = buffer.get_string(buffer.get_size())
+	value = value.replace(char(0x200B), "") # Remove zero width spaces
+	oDataLua.data = value
+func new_lua():
+	oDataLua.data = ""
 
 func read_slb(buffer):
 	oDataSlab.initialize(M.xSize, M.ySize, 0, Grid.U16)
@@ -418,10 +427,9 @@ func read_tngfx(buffer):
 					id.parentTile = c.get_value(section, "ParentTile")
 					if id.subtype in Things.LIST_OF_HEROGATES: # Hero Gate
 						id.herogateNumber = c.get_value(section, "HerogateNumber")
-					elif id.subtype == 133: # Mysterious Box
-						id.boxNumber = c.get_value(section, "CustomBox")
 					elif id.subtype in Things.LIST_OF_GOLDPILES:
 						id.goldValue = c.get_value(section, "GoldValue", -1)
+					id.boxNumber = c.get_value(section, "CustomBox", -1)
 					id.orientation = c.get_value(section, "Orientation", -1)
 				Things.TYPE.CREATURE:
 					id.index = c.get_value(section, "Index")

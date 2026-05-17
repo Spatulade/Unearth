@@ -8,6 +8,7 @@ onready var oMessage = Nodelist.list["oMessage"]
 onready var oLimitThing = Nodelist.list["oLimitThing"]
 onready var oCurrentFormat = Nodelist.list["oCurrentFormat"]
 onready var oMapSettingsWindow = Nodelist.list["oMapSettingsWindow"]
+onready var oPlaceLockedCheckBox = $EditingTools/PlaceLockedCheckBox
 
 # Default values for placement
 var effectRange = 5
@@ -44,6 +45,7 @@ enum FIELDS {
 
 func _ready():
 	get_parent().set_tab_title(1, "Create")
+	oPlaceLockedCheckBox.connect("toggled", self, "_on_PlaceLockedCheckBox_toggled")
 
 func editing_mode_was_switched(modeString):
 	if modeString == "Slab":
@@ -56,23 +58,18 @@ func _on_PropertiesTabs_tab_changed(tab):
 		set_placing_tab_and_update_it()
 
 
-func replicate_instance_settings(node):
-	if node.get("effectRange"): effectRange = node.effectRange
-	if node.get("creatureLevel"): creatureLevel = node.creatureLevel
-	if node.get("doorLocked"): doorLocked = node.doorLocked
-	if node.get("ownership"): ownership = node.ownership
-	if node.get("lightRange"): lightRange = node.lightRange
-	if node.get("lightIntensity"): lightIntensity = node.lightIntensity
-	if node.get("pointRange"): pointRange = node.pointRange
-	if node.get("boxNumber"): boxNumber = node.boxNumber
+func replicate_instance_settings(aNode):
+	var propertiesToReplicate = [
+		"effectRange", "creatureLevel", "doorLocked", "ownership",
+		"lightRange", "lightIntensity", "pointRange", "boxNumber",
+		"creatureName", "creatureGold", "creatureInitialHealth",
+		"orientation", "goldValue"
+	]
 	
-	if node.get("creatureName"): creatureName = node.creatureName
-	if node.get("creatureName") == "": creatureName = node.creatureName
-	
-	if node.get("creatureGold"): creatureGold = node.creatureGold
-	if node.get("creatureInitialHealth"): creatureInitialHealth = node.creatureInitialHealth
-	if node.get("orientation"): orientation = node.orientation
-	if node.get("goldValue"): goldValue = node.goldValue
+	for propertyName in propertiesToReplicate:
+		var valueFromNode = aNode.get(propertyName)
+		if valueFromNode != null:
+			set(propertyName, valueFromNode)
 
 
 func set_placing_tab_and_update_it():
@@ -91,7 +88,7 @@ func update_placing_tab():
 			availableFields = [FIELDS.SUBTYPE]
 		Things.TYPE.OBJECT:
 			availableFields = [FIELDS.SUBTYPE, FIELDS.NAME_ID, FIELDS.THINGTYPE]
-			if subtype == 133: #Mysterious Box
+			if Things.is_custom_special_box(subtype) == true: # Custom Special Box
 				availableFields = [FIELDS.SUBTYPE, FIELDS.NAME_ID, FIELDS.THINGTYPE, FIELDS.CUSTOM_BOX_ID]
 			if oCurrentFormat.selected != 0: # Classic format
 				availableFields.append(FIELDS.ORIENTATION)
@@ -185,3 +182,7 @@ func _on_PlacingTipsButton_pressed():
 
 func _on_FortifyCheckBox_toggled(button_pressed):
 	Settings.set_setting("fortify", button_pressed)
+
+
+func _on_PlaceLockedCheckBox_toggled(button_pressed):
+	Settings.set_setting("place_locked", button_pressed)

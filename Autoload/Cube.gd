@@ -30,6 +30,10 @@ const rngCube = {
 	"ClaimedGround" : [126,127,128],
 	"Gold" : [49,50,51],
 	"GoldNearLava" : [52,53,54],
+	"IntermediateGold" : [488,489,490],
+	"IntermediateGoldNearLava" : [491,492,493],
+	"DenseGold" : [482,483,484],
+	"DenseGoldNearLava" : [485,486,487],
 	"PathClean" : [25,26,27],
 	"PathWithStones" : [28,29],
 	"Library" : [174,175],
@@ -68,8 +72,7 @@ func read_cubes_cfg(get_cfg_data):
 	set_max_cubes()
 
 
-func load_dk_original_cubes():
-	tex = [
+const DEFAULT_TEX = [
 		[  0,   0,   0,   0,   0,   0],
 		[  2,   2,   2,   2,   5,   2],
 		[  3,   3,   3,   3,   5,   3],
@@ -581,22 +584,34 @@ func load_dk_original_cubes():
 		[  0,   0,   0,   0,   0,   0],
 		[  0,   0,   0,   0,   0,   0],
 		[  0,   0,   0,   0,   0,   0],
-	]
+]
+
+
+func load_dk_original_cubes():
+	tex = DEFAULT_TEX.duplicate(true)
 	set_max_cubes()
 
+
+func is_cube_modified(cubeID):
+	if cubeID >= tex.size():
+		return false
+	if cubeID >= DEFAULT_TEX.size():
+		return true
+	return tex[cubeID] != DEFAULT_TEX[cubeID]
+
 func set_max_cubes():
-	var oColumnEditorControls = Nodelist.list["oColumnEditorControls"]
+	var oClmEditorControls = Nodelist.list["oClmEditorControls"]
 	var oColumnsetControls = Nodelist.list["oColumnsetControls"]
 	
 	CUBES_COUNT = Cube.tex.size()-1
 	
-	oColumnEditorControls.establish_maximum_cube_field_values()
+	oClmEditorControls.establish_maximum_cube_field_values()
 	oColumnsetControls.establish_maximum_cube_field_values()
 
 
 func get_cubescfg_modified_time():
 	var oGame = Nodelist.list["oGame"]
-	var path = oGame.get_precise_filepath(oGame.DK_FXDATA_DIRECTORY, "CUBES.CFG")
+	var path = Utils.case_insensitive_file(oGame.DK_FXDATA_DIRECTORY, "CUBES", "CFG")
 	var getModifiedTime = File.new().get_modified_time(path)
 	return getModifiedTime
 
@@ -608,7 +623,7 @@ func get_cubescfg_modified_time():
 #				var oMessage = Nodelist.list["oMessage"]
 #				var oOverheadGraphics = Nodelist.list["oOverheadGraphics"]
 #				var oPickSlabWindow = Nodelist.list["oPickSlabWindow"]
-#				var oColumnEditor = Nodelist.list["oColumnEditor"]
+#				var oTabClmEditor = Nodelist.list["oTabClmEditor"]
 #				var oSlabsetWindow = Nodelist.list["oSlabsetWindow"]
 #				var oEditor = Nodelist.list["oEditor"]
 #				var oGenerateTerrain = Nodelist.list["oGenerateTerrain"]
@@ -618,7 +633,7 @@ func get_cubescfg_modified_time():
 #
 #				oOverheadGraphics.update_full_overhead_map()
 #				oPickSlabWindow.add_slabs()
-#				oColumnEditor._on_ColumnEditor_visibility_changed()
+#				oTabClmEditor._on_ColumnEditor_visibility_changed()
 #				oSlabsetWindow._on_SlabsetWindow_visibility_changed()
 #				if oEditor.currentView == oEditor.VIEW_3D:
 #					oGenerateTerrain.start()

@@ -50,15 +50,17 @@ func reset_thing_data_to_default(): # Reset data. Takes 1ms.
 	LIST_OF_BOXES = default_data["LIST_OF_BOXES"].duplicate(true)
 
 func fetch_sprite(thing_type:int, sub_type:int):
-	var sub_type_data = data_structure(thing_type).get(sub_type)
+	var data_structure_dictionary = data_structure(thing_type)
+	var sub_type_data = data_structure_dictionary.get(sub_type)
 	if sub_type_data:
 		var sprite = Graphics.sprite_id.get(sub_type_data[SPRITE])
 		if sprite:
 			return sprite
-		match sub_type_data[GENRE]:
-			"SPECIALBOX":  return Graphics.sprite_id.get(901, null)
-			"SPELLBOOK":   return Graphics.sprite_id.get(777, null)
-			"WORKSHOPBOX": return Graphics.sprite_id.get(114, null)
+		if sub_type_data.size() >= 3:
+			match sub_type_data[GENRE]:
+				"SPECIALBOX":  return Graphics.sprite_id.get(901, null)
+				"SPELLBOOK":   return Graphics.sprite_id.get(777, null)
+				"WORKSHOPBOX": return Graphics.sprite_id.get(114, null)
 	return null
 
 
@@ -169,10 +171,12 @@ var LIST_OF_BOXES = {
 var LIST_OF_GOLDPILES = [
 	3, 6, 43, 128, 136
 ]
-
-
 var LIST_OF_SPELLBOOKS = [ ]
 var LIST_OF_HEROGATES = [ ]
+
+func clear_dynamic_lists():
+	LIST_OF_SPELLBOOKS.clear()
+	LIST_OF_HEROGATES.clear()
 
 enum SPELLBOOK {
 	HAND = 11
@@ -215,6 +219,13 @@ func find_subtype_by_name(thingType, findName):
 		if subtype_data and subtype_data[NAME_ID] == findName:
 			return subtype_key
 	return null
+
+func is_custom_special_box(subtype):
+	if not DATA_OBJECT.has(subtype) or DATA_OBJECT[subtype][GENRE] != "SPECIALBOX":
+		return false
+	if subtype in [86,87,88,89,90,91,92,93,170,171,172,173]:
+		return false
+	return true
 
 var DATA_EXTRA = {
 0 : [null, null, null, null],

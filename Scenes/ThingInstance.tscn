@@ -13,11 +13,10 @@
 [ext_resource path="res://dk_images/creature_flower_32/level_01.png" type="Texture" id=11]
 [ext_resource path="res://Theme/UnearthTheme.theme" type="Theme" id=12]
 [ext_resource path="res://Theme/Stoke-Light.ttf" type="DynamicFontData" id=13]
+[ext_resource path="res://Art/whitearrow.png" type="Texture" id=14]
 
 [sub_resource type="RectangleShape2D" id=1]
 extents = Vector2( 16, 16 )
-
-[sub_resource type="AnimatedTexture" id=4]
 
 [sub_resource type="SpriteFrames" id=3]
 animations = [ {
@@ -41,6 +40,7 @@ script = ExtResource( 1 )
 shape = SubResource( 1 )
 
 [node name="ThingTexture" type="TextureRect" parent="."]
+unique_name_in_owner = true
 margin_left = -16.0
 margin_top = -16.0
 margin_right = 16.0
@@ -52,8 +52,12 @@ rect_pivot_offset = Vector2( 16, 16 )
 mouse_filter = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-texture = SubResource( 4 )
 stretch_mode = 6
+
+[node name="WhiteArrow" type="Sprite" parent="."]
+visible = false
+z_index = 9
+texture = ExtResource( 14 )
 
 [node name="CreatureLevel" type="AnimatedSprite" parent="."]
 visible = false
